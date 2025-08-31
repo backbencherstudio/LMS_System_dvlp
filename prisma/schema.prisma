@@ -41,14 +41,28 @@ model User {
   approved_at  DateTime?
   availability String?
 
-  email      String? @unique
-  username   String? @unique
-  name       String? @db.VarChar(255)
-  first_name String? @db.VarChar(255)
-  last_name  String? @db.VarChar(255)
-  password   String? @db.VarChar(255)
-  domain     String? @unique
-  avatar     String?
+  email       String? @unique
+  username    String? @unique
+  name        String? @db.VarChar(255)
+  first_name  String? @db.VarChar(255)
+  last_name   String? @db.VarChar(255)
+  password    String? @db.VarChar(255)
+  domain      String? @unique
+  avatar      String?
+  grade_level String?
+
+  //for teacher
+  highest_education_level      String?
+  teching_experience           String?
+  subjects_taught              String[]
+  hourly_rate                  Decimal? @db.Decimal(10, 2)
+  about_me                     String?  @db.Text
+  general_availability         String?  @db.Text
+  certifications               String?  @db.Text
+  is_agreed_terms              Int?     @default(0)
+  is_verified                  Int?     @default(0)
+  is_agree_application_process Int?     @default(0)
+
 
   phone_number  String?
   country       String?
@@ -419,18 +433,21 @@ model UserSetting {
   @@map("user_settings")
 }
 
-// this table stores example
-// model Note {
-//   id                String  @id @default(cuid())
-//   created_at DateTime  @default(now())
-//   updated_at DateTime  @default(now())
-//   deleted_at DateTime?
-//   status     Int?      @default(1) @db.SmallInt
+////////////////////////////////
+// student models //////////////
+////////////////////////////////
 
-//   title String?
-//   body  String? @db.Text
 
-//   tenant_id Int?
-//   tenant    Organization? @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-//   @@map("posts")
-// }
+////////////////////////////////
+// teacher models //////////////
+////////////////////////////////
+
+
+////////////////////////////////
+// common models ///////////////
+////////////////////////////////
+
+
+/////////////////////////////////
+// admin models /////////////////
+/////////////////////////////////

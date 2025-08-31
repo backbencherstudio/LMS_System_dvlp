@@ -31,6 +31,17 @@ async function bootstrap() {
   //   }
   //   next();
   // });
+
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          imgSrc: ["'self'", "https://techterms.com", "https://tse3.mm.bing.net", "data:"],
+        },
+      },
+    })
+  );
   app.useStaticAssets(join(__dirname, '..', 'public'), {
     index: false,
     prefix: '/public',

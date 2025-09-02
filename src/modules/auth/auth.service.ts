@@ -817,4 +817,10 @@ export class AuthService {
     }
   }
   // --------- end 2FA ---------
+
+
+  // google log in using passport.js
+  // linkedin log in using passport.js
+
+
 }

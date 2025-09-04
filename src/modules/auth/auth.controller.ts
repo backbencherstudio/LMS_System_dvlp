@@ -24,11 +24,107 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import appConfig from '../../config/app.config';
 import { AuthGuard } from '@nestjs/passport';
+import { LoginUserDto } from './dto/login-user.dto';
+
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
+
+
+  /*=================================================
+                Create user start
+  =================================================*/
+  @ApiOperation({ summary: 'Register a user' })
+  @Post('register')
+  async create(@Body() data: CreateUserDto) {
+    try {
+      const { first_name, last_name, email, password, type } = data;
+
+      // Basic validation
+      if (!first_name) throw new HttpException('First name not provided', HttpStatus.BAD_REQUEST);
+      if (!last_name) throw new HttpException('Last name not provided', HttpStatus.BAD_REQUEST);
+      if (!email) throw new HttpException('Email not provided', HttpStatus.BAD_REQUEST);
+      if (!password) throw new HttpException('Password not provided', HttpStatus.BAD_REQUEST);
+
+      // Call service to create user
+      const user = await this.authService.createUser(data);
+
+      return {
+        success: true,
+        message: 'User registered successfully',
+        data: user,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || 'Something went wrong',
+      };
+    }
+  }
+  /*=================================================
+                Create user  user end
+  =================================================*/
+  /*=================================================
+                Login user start
+  =================================================*/
+
+  @ApiOperation({ summary: 'User login' })
+    @Post('login')
+    async login(@Body() data: LoginUserDto) {
+      try {
+        const result = await this.authService.loginUser(data);
+        return {
+          success: true,
+          message: 'Login successful',
+          data: result,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          message: error.message || 'Login failed',
+        };
+      }
+    }
+
+
+
+
+  // @ApiOperation({ summary: 'Login user' })
+  // @UseGuards(LocalAuthGuard)
+  // @Post('login')
+  // async login(@Req() req: Request, @Res() res: Response) {
+  //   try {
+  //     const user_id = req.user.id;
+
+  //     const user_email = req.user.email;
+
+  //     const response = await this.authService.login({
+  //       userId: user_id,
+  //       email: user_email,
+  //     });
+
+  //     // store to secure cookies
+  //     res.cookie('refresh_token', response.authorization.refresh_token, {
+  //       httpOnly: true,
+  //       secure: true,
+  //       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+  //     });
+
+  //     res.json(response);
+  //   } catch (error) {
+  //     return {
+  //       success: false,
+  //       message: error.message,
+  //     };
+  //   }
+  // }
+  /*=================================================
+                Login user end
+  =================================================*/
+
+
 
   @ApiOperation({ summary: 'Get user details' })
   @ApiBearerAuth()
@@ -49,90 +145,9 @@ export class AuthController {
     }
   }
 
-  @ApiOperation({ summary: 'Register a user' })
-  @Post('register')
-  async create(@Body() data: CreateUserDto) {
-    try {
-      const name = data.name;
-      const first_name = data.first_name;
-      const last_name = data.last_name;
-      const email = data.email;
-      const password = data.password;
-      const type = data.type;
-
-      if (!name) {
-        throw new HttpException('Name not provided', HttpStatus.UNAUTHORIZED);
-      }
-      if (!first_name) {
-        throw new HttpException(
-          'First name not provided',
-          HttpStatus.UNAUTHORIZED,
-        );
-      }
-      if (!last_name) {
-        throw new HttpException(
-          'Last name not provided',
-          HttpStatus.UNAUTHORIZED,
-        );
-      }
-      if (!email) {
-        throw new HttpException('Email not provided', HttpStatus.UNAUTHORIZED);
-      }
-      if (!password) {
-        throw new HttpException(
-          'Password not provided',
-          HttpStatus.UNAUTHORIZED,
-        );
-      }
-
-      const response = await this.authService.register({
-        name: name,
-        first_name: first_name,
-        last_name: last_name,
-        email: email,
-        password: password,
-        type: type,
-      });
-
-      return response;
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message,
-      };
-    }
-  }
-
+ 
   // login user
-  @ApiOperation({ summary: 'Login user' })
-  @UseGuards(LocalAuthGuard)
-  @Post('login')
-  async login(@Req() req: Request, @Res() res: Response) {
-    try {
-      const user_id = req.user.id;
 
-      const user_email = req.user.email;
-
-      const response = await this.authService.login({
-        userId: user_id,
-        email: user_email,
-      });
-
-      // store to secure cookies
-      res.cookie('refresh_token', response.authorization.refresh_token, {
-        httpOnly: true,
-        secure: true,
-        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
-      });
-
-      res.json(response);
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message,
-      };
-    }
-  }
 
   @ApiOperation({ summary: 'Refresh token' })
   @ApiBearerAuth()

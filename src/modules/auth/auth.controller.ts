@@ -79,9 +79,16 @@ export class AuthController {
       const user = await this.authService.createUser(data);
 
       return {
-        success: true,
+        // success: true,
         message: 'User registered successfully',
-        data: user,
+        // data: {
+        //   user: {
+        //     email: user.email,
+        //     firstName: user.first_name,
+        //     lastName: user.last_name,
+        //     type: user.type,
+        //   },
+        // },
       };
     } catch (error) {
       return {

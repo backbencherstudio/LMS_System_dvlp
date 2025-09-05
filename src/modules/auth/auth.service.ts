@@ -1,7 +1,13 @@
 // external imports
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRedis } from '@nestjs-modules/ioredis';
+import * as bcrypt from 'bcrypt';
 import Redis from 'ioredis';
 
 //internal imports
@@ -15,6 +21,8 @@ import { SojebStorage } from '../../common/lib/Disk/SojebStorage';
 import { DateHelper } from '../../common/helper/date.helper';
 import { StripePayment } from '../../common/lib/Payment/stripe/StripePayment';
 import { StringHelper } from '../../common/helper/string.helper';
+import { CreateUserDto } from './dto/create-user.dto';
+import { LoginUserDto } from './dto/login-user.dto';
 
 @Injectable()
 export class AuthService {
@@ -24,6 +32,215 @@ export class AuthService {
     private mailService: MailService,
     @InjectRedis() private readonly redis: Redis,
   ) {}
+
+  /*=================================================
+                Create student user start
+  =================================================*/
+
+  async createUser(data: CreateUserDto) {
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+
+    const userData: any = {
+      first_name: data.first_name,
+      last_name: data.last_name,
+      email: data.email,
+      password: hashedPassword,
+      phone_number: data.phone_number,
+      type: data.type,
+    };
+
+    // Student fields
+    if (data.type === 'student' && data.grade_level) {
+      userData.grade_level = data.grade_level;
+    }
+
+    // Teacher fields
+    if (data.type === 'teacher') {
+      if (data.highest_education_level)
+        userData.highest_education_level = data.highest_education_level;
+      if (data.teaching_experience)
+        userData.teching_experience = data.teaching_experience;
+      if (data.subjects_taught) userData.subjects_taught = data.subjects_taught;
+      if (data.hourly_rate) userData.hourly_rate = data.hourly_rate;
+      if (data.about_me) userData.about_me = data.about_me;
+      if (data.general_availability)
+        userData.general_availability = data.general_availability;
+      if (data.city) userData.city = data.city;
+      if (data.avatar) userData.avatar = data.avatar;
+      if (data.is_agreed_terms !== undefined)
+        userData.is_agreed_terms = data.is_agreed_terms ? 1 : 0;
+      if (data.is_agree_application_process !== undefined)
+        userData.is_agree_application_process =
+          data.is_agree_application_process ? 1 : 0;
+    }
+
+    // Check if email already exists
+    const userEmailExist = await this.prisma.user.findUnique({
+      where: { email: data.email },
+    });
+
+    if (userEmailExist) {
+      throw new HttpException('Email already exists', HttpStatus.BAD_REQUEST);
+    }
+
+    // Create user
+    const user = await this.prisma.user.create({ data: userData });
+
+    // Create Stripe customer account
+    try {
+      const stripeCustomer = await StripePayment.createCustomer({
+        user_id: user.id,
+        email: user.email,
+        name: `${user.first_name} ${user.last_name}`,
+      });
+
+      if (stripeCustomer) {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { billing_id: stripeCustomer.id },
+        });
+      }
+    } catch (error) {
+      // Log error but don't fail user creation if Stripe fails
+      console.error('Failed to create Stripe customer:', error);
+    }
+
+    // Create verification token and send email
+    try {
+      const token = await UcodeRepository.createVerificationToken({
+        userId: user.id,
+        email: user.email,
+      });
+
+      // Send verification email with token
+      await this.mailService.sendVerificationLink({
+        email: user.email,
+        name: `${user.first_name} ${user.last_name}`,
+        token: token.token,
+        type: user.type,
+      });
+    } catch (error) {
+      // Log error but don't fail user creation if email sending fails
+      console.error('Failed to send verification email:', error);
+    }
+
+    return user;
+  }
+  /*=================================================
+                Create student user start
+  =================================================*/
+  /*=================================================
+                    Login user start
+  =================================================*/
+
+  // src/auth/auth.service.ts
+  async loginUser(data: LoginUserDto) {
+    const { email, password } = data;
+
+    // Find user by email
+    const user = await this.prisma.user.findUnique({ where: { email } });
+
+    if (!user) {
+      throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
+    }
+
+    // Compare password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
+    }
+
+    // Generate JWT
+    const payload = { id: user.id, email: user.email, type: user.type };
+    const token = this.jwtService.sign(payload);
+
+    return {
+      access_token: token,
+      user,
+    };
+  }
+
+  async login({ email, userId }) {
+    try {
+      const payload = { email: email, sub: userId };
+
+      const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
+      const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+
+      const user = await UserRepository.getUserDetails(userId);
+
+      // store refreshToken
+      await this.redis.set(
+        `refresh_token:${user.id}`,
+        refreshToken,
+        'EX',
+        60 * 60 * 24 * 7, // 7 days in seconds
+      );
+
+      return {
+        success: true,
+        message: 'Logged in successfully',
+        authorization: {
+          type: 'bearer',
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        },
+        type: user.type,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
+
+  /*=================================================
+                Login with google 
+  =================================================*/
+
+  // Method to generate JWT token after Google login
+  async authenticateUser({ email, userId }: { email: string; userId: string }) {
+    try {
+      const payload = { email: email, sub: userId }; // Create JWT payload
+
+      // Generate tokens
+      const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
+      const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+
+      // Get user details from the repository
+      const user = await UserRepository.getUserDetails(userId);
+
+      // Store the refresh token in Redis (or any other store)
+      await this.redis.set(
+        `refresh_token:${user.id}`,
+        refreshToken,
+        'EX',
+        60 * 60 * 24 * 7, // 7 days expiration
+      );
+
+      // Return response with tokens
+      return {
+        success: true,
+        message: 'Logged in successfully',
+        authorization: {
+          type: 'bearer',
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        },
+        type: user.type,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
+
+  /*=================================================
+                    Login user end
+  =================================================*/
 
   async me(userId: string) {
     try {
@@ -84,9 +301,7 @@ export class AuthService {
   ) {
     try {
       const data: any = {};
-      if (updateUserDto.name) {
-        data.name = updateUserDto.name;
-      }
+
       if (updateUserDto.first_name) {
         data.first_name = updateUserDto.first_name;
       }
@@ -219,41 +434,6 @@ export class AuthService {
       //   success: false,
       //   message: 'Email not found',
       // };
-    }
-  }
-
-  async login({ email, userId }) {
-    try {
-      const payload = { email: email, sub: userId };
-
-      const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
-      const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
-
-      const user = await UserRepository.getUserDetails(userId);
-
-      // store refreshToken
-      await this.redis.set(
-        `refresh_token:${user.id}`,
-        refreshToken,
-        'EX',
-        60 * 60 * 24 * 7, // 7 days in seconds
-      );
-
-      return {
-        success: true,
-        message: 'Logged in successfully',
-        authorization: {
-          type: 'bearer',
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        },
-        type: user.type,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message,
-      };
     }
   }
 
@@ -818,9 +998,6 @@ export class AuthService {
   }
   // --------- end 2FA ---------
 
-
   // google log in using passport.js
   // linkedin log in using passport.js
-
-
 }

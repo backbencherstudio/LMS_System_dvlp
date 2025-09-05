@@ -25,6 +25,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import appConfig from '../../config/app.config';
 import { AuthGuard } from '@nestjs/passport';
 import { LoginUserDto } from './dto/login-user.dto';
+import { GoogleAuthGuard } from './guards/google-auth.guard';
 
 
 @ApiTags('auth')
@@ -221,20 +222,40 @@ export class AuthController {
     }
   }
 
+  /*=================================================
+               Start Create Google OAuth user  
+  =================================================*/
+  // Route to initiate Google login
   @Get('google')
-  @UseGuards(AuthGuard('google'))
-  async googleLogin(): Promise<any> {
+  @UseGuards(GoogleAuthGuard) // This will trigger the Google OAuth strategy
+  async googleAuth(@Req() req) {
+    // This will initiate the Google OAuth flow
+
     return HttpStatus.OK;
   }
 
+  // Route that Google will redirect to after login
   @Get('google/redirect')
-  @UseGuards(AuthGuard('google'))
-  async googleLoginRedirect(@Req() req: Request): Promise<any> {
-    return {
-      statusCode: HttpStatus.OK,
-      data: req.user,
-    };
+  @UseGuards(GoogleAuthGuard)
+  async googleAuthRedirect(@Req() req, @Res() res: Response) {
+    const { user, loginResponse } = req.user; // user and loginResponse returned from GoogleStrategy
+
+    // Now, return the JWT tokens and the user info
+    return res.json({
+      success: true,
+      message: 'Logged in successfully via Google',
+      authorization: loginResponse.authorization, // Send access_token and refresh_token
+      user: {
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        picture: user.picture,
+      },
+    });
   }
+  /*=================================================
+               Start Create Google OAuth end
+  =================================================*/
 
   // update user
   @ApiOperation({ summary: 'Update user' })

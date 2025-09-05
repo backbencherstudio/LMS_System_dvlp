@@ -234,6 +234,49 @@ export class AuthService {
   /*=================================================
                     Login user end
   =================================================*/
+  /*=================================================
+                   google OAuth start
+  =================================================*/
+   async authenticateUser({ email, userId }: { email: string; userId: string }) {
+    try {
+      const payload = { email: email, sub: userId }; // Create JWT payload
+
+      // Generate tokens
+      const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
+      const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+
+      // Get user details from the repository
+      const user = await UserRepository.getUserDetails(userId);
+
+      // Store the refresh token in Redis (or any other store)
+      await this.redis.set(
+        `refresh_token:${user.id}`,
+        refreshToken,
+        'EX',
+        60 * 60 * 24 * 7, // 7 days expiration
+      );
+
+      // Return response with tokens
+      return {
+        success: true,
+        message: 'Logged in successfully',
+        authorization: {
+          type: 'bearer',
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        },
+        type: user.type,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
+  /*=================================================
+                   google OAuth end
+  =================================================*/
 
 
    

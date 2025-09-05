@@ -113,4 +113,26 @@ export class CreateUserDto {
   @ApiProperty({ required: false })
   is_agree_application_process?: boolean;
 
+
+  // Goggle OAuth
+  @IsOptional()
+  @IsString()
+  @ApiProperty()
+  googleId: string;
+ 
+  @IsOptional()
+  @IsString()
+  @ApiProperty()
+  picture?: string;
+ 
+  @IsOptional()
+  @IsString()
+  @ApiProperty()
+  accessToken: string;
+ 
+  @IsOptional()
+  @IsString()
+  @ApiProperty()
+  refreshToken: string;
+
 }

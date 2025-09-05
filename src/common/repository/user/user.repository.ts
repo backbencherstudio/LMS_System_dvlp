@@ -198,6 +198,7 @@ export class UserRepository {
     phone_number,
     role_id = null,
     type = 'user',
+    googleId,
   }: {
     name?: string;
     first_name?: string;
@@ -207,6 +208,7 @@ export class UserRepository {
     phone_number?: string;
     role_id?: string;
     type?: string;
+    googleId?: string;
   }) {
     try {
       const data = {};
@@ -243,6 +245,11 @@ export class UserRepository {
           password,
           appConfig().security.salt,
         );
+      }
+
+      // Add googleId if provided
+      if (googleId) {
+        data['googleId'] = googleId;
       }
 
       if (type && ArrayHelper.inArray(type, Object.values(Role))) {

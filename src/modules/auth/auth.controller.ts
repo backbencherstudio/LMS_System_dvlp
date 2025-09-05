@@ -24,11 +24,133 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import appConfig from '../../config/app.config';
 import { AuthGuard } from '@nestjs/passport';
+import { LoginUserDto } from './dto/login-user.dto';
+import { GoogleAuthGuard } from './guards/google-auth.guard';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
+
+  /*=================================================
+                Create user start
+  =================================================*/
+  @ApiOperation({ summary: 'Register a user' })
+  @Post('register')
+  async create(@Body() data: CreateUserDto) {
+    try {
+      const { first_name, last_name, email, password, type } = data;
+
+      // Basic validation
+      if (!first_name)
+        throw new HttpException(
+          'First name not provided',
+          HttpStatus.BAD_REQUEST,
+        );
+      if (!last_name)
+        throw new HttpException(
+          'Last name not provided',
+          HttpStatus.BAD_REQUEST,
+        );
+      if (!email)
+        throw new HttpException('Email not provided', HttpStatus.BAD_REQUEST);
+      if (!password)
+        throw new HttpException(
+          'Password not provided',
+          HttpStatus.BAD_REQUEST,
+        );
+
+      // Type must be provided
+      if (!data.type) {
+        throw new HttpException(
+          'User type is required',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      if (!['student', 'teacher'].includes(data.type)) {
+        throw new HttpException(
+          'Invalid user type. Must be student, teacher or user',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Call service to create user
+      const user = await this.authService.createUser(data);
+
+      return {
+        success: true,
+        message: 'User registered successfully',
+        data: user,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || 'Something went wrong',
+      };
+    }
+  }
+  /*=================================================
+                Create user  user end
+  =================================================*/
+  /*=================================================
+                Login user start
+  =================================================*/
+
+  @ApiOperation({ summary: 'Login user' })
+  @Post('login')
+  async login(@Body() data: LoginUserDto, @Res() res: Response) {
+    try {
+      const response = await this.authService.login(data);
+
+      // store refresh token in secure cookie
+      res.cookie('refresh_token', response.authorization.refresh_token, {
+        httpOnly: true,
+        secure: true, // set false if not using HTTPS in dev
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+      });
+
+      res.json(response);
+    } catch (error) {
+      throw new HttpException(
+        error.message || 'Login failed',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+  }
+
+  // @ApiOperation({ summary: 'Login user' })
+  // @UseGuards(LocalAuthGuard)
+  // @Post('login')
+  // async login(@Req() req: Request, @Res() res: Response) {
+  //   try {
+  //     const user_id = req.user.id;
+
+  //     const user_email = req.user.email;
+
+  //     const response = await this.authService.login({
+  //       userId: user_id,
+  //       email: user_email,
+  //     });
+
+  //     // store to secure cookies
+  //     res.cookie('refresh_token', response.authorization.refresh_token, {
+  //       httpOnly: true,
+  //       secure: true,
+  //       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+  //     });
+
+  //     res.json(response);
+  //   } catch (error) {
+  //     return {
+  //       success: false,
+  //       message: error.message,
+  //     };
+  //   }
+  // }
+  /*=================================================
+                Login user end
+  =================================================*/
 
   @ApiOperation({ summary: 'Get user details' })
   @ApiBearerAuth()
@@ -49,90 +171,7 @@ export class AuthController {
     }
   }
 
-  @ApiOperation({ summary: 'Register a user' })
-  @Post('register')
-  async create(@Body() data: CreateUserDto) {
-    try {
-      const name = data.name;
-      const first_name = data.first_name;
-      const last_name = data.last_name;
-      const email = data.email;
-      const password = data.password;
-      const type = data.type;
-
-      if (!name) {
-        throw new HttpException('Name not provided', HttpStatus.UNAUTHORIZED);
-      }
-      if (!first_name) {
-        throw new HttpException(
-          'First name not provided',
-          HttpStatus.UNAUTHORIZED,
-        );
-      }
-      if (!last_name) {
-        throw new HttpException(
-          'Last name not provided',
-          HttpStatus.UNAUTHORIZED,
-        );
-      }
-      if (!email) {
-        throw new HttpException('Email not provided', HttpStatus.UNAUTHORIZED);
-      }
-      if (!password) {
-        throw new HttpException(
-          'Password not provided',
-          HttpStatus.UNAUTHORIZED,
-        );
-      }
-
-      const response = await this.authService.register({
-        name: name,
-        first_name: first_name,
-        last_name: last_name,
-        email: email,
-        password: password,
-        type: type,
-      });
-
-      return response;
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message,
-      };
-    }
-  }
-
   // login user
-  @ApiOperation({ summary: 'Login user' })
-  @UseGuards(LocalAuthGuard)
-  @Post('login')
-  async login(@Req() req: Request, @Res() res: Response) {
-    try {
-      const user_id = req.user.id;
-
-      const user_email = req.user.email;
-
-      const response = await this.authService.login({
-        userId: user_id,
-        email: user_email,
-      });
-
-      // store to secure cookies
-      res.cookie('refresh_token', response.authorization.refresh_token, {
-        httpOnly: true,
-        secure: true,
-        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
-      });
-
-      res.json(response);
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message,
-      };
-    }
-  }
 
   @ApiOperation({ summary: 'Refresh token' })
   @ApiBearerAuth()
@@ -175,20 +214,51 @@ export class AuthController {
     }
   }
 
+  /*=================================================
+               Start Create Google OAuth user  
+  =================================================*/
+  // Route to initiate Google login
   @Get('google')
-  @UseGuards(AuthGuard('google'))
-  async googleLogin(): Promise<any> {
+  @UseGuards(GoogleAuthGuard) // This will trigger the Google OAuth strategy
+  async googleAuth(@Req() req) {
+    // This will initiate the Google OAuth flow
+
     return HttpStatus.OK;
   }
 
+  // Route that Google will redirect to after login
   @Get('google/redirect')
-  @UseGuards(AuthGuard('google'))
-  async googleLoginRedirect(@Req() req: Request): Promise<any> {
-    return {
-      statusCode: HttpStatus.OK,
-      data: req.user,
-    };
+  @UseGuards(GoogleAuthGuard)
+  async googleAuthRedirect(@Req() req, @Res() res: Response) {
+    const { user, loginResponse } = req.user; // user and loginResponse returned from GoogleStrategy
+
+    // Now, return the JWT tokens and the user info
+    return res.json({
+      success: true,
+      message: 'Logged in successfully via Google',
+      authorization: loginResponse.authorization, // Send access_token and refresh_token
+      user: {
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        picture: user.picture,
+      },
+    });
   }
+  // @Get('google')
+  // @UseGuards(AuthGuard('google'))
+  // async googleLogin(): Promise<any> {
+  //   return HttpStatus.OK;
+  // }
+
+  // @Get('google/redirect')
+  // @UseGuards(AuthGuard('google'))
+  // async googleLoginRedirect(@Req() req: Request): Promise<any> {
+  //   return {
+  //     statusCode: HttpStatus.OK,
+  //     data: req.user,
+  //   };
+  // }
 
   // update user
   @ApiOperation({ summary: 'Update user' })

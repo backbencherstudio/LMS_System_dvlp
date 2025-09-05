@@ -1,7 +1,13 @@
 // external imports
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRedis } from '@nestjs-modules/ioredis';
+import * as bcrypt from 'bcrypt';
 import Redis from 'ioredis';
 
 //internal imports
@@ -15,6 +21,8 @@ import { SojebStorage } from '../../common/lib/Disk/SojebStorage';
 import { DateHelper } from '../../common/helper/date.helper';
 import { StripePayment } from '../../common/lib/Payment/stripe/StripePayment';
 import { StringHelper } from '../../common/helper/string.helper';
+import { CreateUserDto } from './dto/create-user.dto';
+import { LoginUserDto } from './dto/login-user.dto';
 
 @Injectable()
 export class AuthService {
@@ -24,6 +32,277 @@ export class AuthService {
     private mailService: MailService,
     @InjectRedis() private readonly redis: Redis,
   ) {}
+  /*=================================================
+                Create student user start
+  =================================================*/
+
+  async createUser(data: CreateUserDto) {
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+
+    const userData = {
+      first_name: data.first_name,
+      last_name: data.last_name,
+      email: data.email,
+      password: hashedPassword,
+      phone_number: data.phone_number,
+      type: data.type,
+    };
+
+    // Type-specific validation
+    if (data.type === 'student') {
+      if (!data.grade_level) {
+        throw new HttpException(
+          'Grade level is required for students',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // only teacherfields
+      if (data.highest_education_level) {
+        throw new HttpException(
+          'Highest education level is Only for teachers not for students',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (data.teaching_experience) {
+        throw new HttpException(
+          'Teaching experience is Only for teachers not for students',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (data.general_availability) {
+        throw new HttpException(
+          'General Availability is Only for teachers not for students',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      if (data.city) {
+        throw new HttpException(
+          'city is Only for teachers not for students',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (data.about_me) {
+        throw new HttpException(
+          'about me is Only for teachers not for students',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      if (data.subjects_taught) {
+        throw new HttpException(
+          'At least one subject is Only for teachers not for students',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (data.hourly_rate !== undefined || data.hourly_rate >= 0) {
+        throw new HttpException(
+          'Hourly rate is required and must be greater than 0 for teachers  Only for teachers not for students',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (!data.is_agreed_terms === true) {
+        throw new HttpException(
+          'You must agree to the terms to for students',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      // if (data.is_agree_application_process === true) {
+      //   throw new HttpException(
+      //     'You must agree to the application process to register as a teacher Only for teachers not for students',
+      //     HttpStatus.BAD_REQUEST,
+      //   );
+      // }
+    }
+
+    // Teacher fields
+    if (data.type === 'teacher') {
+      // only student fields
+      if (data.grade_level) {
+        throw new HttpException(
+          'Grade level is only required for students not for teachers',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // teacher fields
+      if (!data.highest_education_level) {
+        throw new HttpException(
+          'Highest education level is required for teachers',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (!data.teaching_experience) {
+        throw new HttpException(
+          'Teaching experience is required for teachers',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (!data.subjects_taught || data.subjects_taught.length === 0) {
+        throw new HttpException(
+          'At least one subject is required for teachers',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (data.hourly_rate === undefined || data.hourly_rate <= 0) {
+        throw new HttpException(
+          'Hourly rate is required and must be greater than 0 for teachers',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (data.is_agreed_terms !== true) {
+        throw new HttpException(
+          'You must agree to the terms to register as a teacher',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (data.is_agree_application_process !== true) {
+        throw new HttpException(
+          'You must agree to the application process to register as a teacher',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+    // Check if email already exists
+    const userEmailExist = await this.prisma.user.findUnique({
+      where: { email: data.email },
+    });
+
+    if (userEmailExist) {
+      throw new HttpException('Email already exists', HttpStatus.BAD_REQUEST);
+    }
+
+    // Create user
+    const user = await this.prisma.user.create({ data: userData });
+
+    // Create Stripe customer account
+    try {
+      const stripeCustomer = await StripePayment.createCustomer({
+        user_id: user.id,
+        email: user.email,
+        name: `${user.first_name} ${user.last_name}`,
+      });
+
+      if (stripeCustomer) {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { billing_id: stripeCustomer.id },
+        });
+      }
+    } catch (error) {
+      // Log error but don't fail user creation if Stripe fails
+      console.error('Failed to create Stripe customer:', error);
+    }
+
+    // Create verification token and send email
+    try {
+      const token = await UcodeRepository.createVerificationToken({
+        userId: user.id,
+        email: user.email,
+      });
+
+      // Send verification email with token
+      await this.mailService.sendVerificationLink({
+        email: user.email,
+        name: `${user.first_name} ${user.last_name}`,
+        token: token.token,
+        type: user.type,
+      });
+    } catch (error) {
+      // Log error but don't fail user creation if email sending fails
+      console.error('Failed to send verification email:', error);
+    }
+
+    return user;
+  }
+  /*=================================================
+                Create student user start
+  =================================================*/
+  /*=================================================
+                    Login user start
+  =================================================*/
+
+  async login({ email, password }) {
+    // Find user by email
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user)
+      throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
+
+    // Compare password
+    const isValid = await bcrypt.compare(password, user.password);
+    if (!isValid)
+      throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
+
+    const payload = { email: user.email, sub: user.id };
+
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
+    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+
+    // Store refresh token in Redis
+    await this.redis.set(
+      `refresh_token:${user.id}`,
+      refreshToken,
+      'EX',
+      60 * 60 * 24 * 7, // 7 days
+    );
+
+    return {
+      success: true,
+      message: 'Logged in successfully',
+      authorization: {
+        type: 'bearer',
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      },
+      type: user.type,
+      user,
+    };
+  }
+  /*=================================================
+                Login with google 
+  =================================================*/
+
+  // Method to generate JWT token after Google login
+  async authenticateUser({ email, userId }: { email: string; userId: string }) {
+    try {
+      const payload = { email: email, sub: userId }; // Create JWT payload
+
+      // Generate tokens
+      const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
+      const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+
+      const user = await UserRepository.getUserDetails(userId);
+
+      await this.redis.set(
+        `refresh_token:${user.id}`,
+        refreshToken,
+        'EX',
+        60 * 60 * 24 * 7, // 7 days expiration
+      );
+
+      // Return response with tokens
+      return {
+        success: true,
+        message: 'Logged in successfully',
+        authorization: {
+          type: 'bearer',
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        },
+        type: user.type,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
+
+  /*=================================================
+                    Login user end
+  =================================================*/
 
   async me(userId: string) {
     try {
@@ -84,9 +363,7 @@ export class AuthService {
   ) {
     try {
       const data: any = {};
-      if (updateUserDto.name) {
-        data.name = updateUserDto.name;
-      }
+
       if (updateUserDto.first_name) {
         data.first_name = updateUserDto.first_name;
       }
@@ -219,41 +496,6 @@ export class AuthService {
       //   success: false,
       //   message: 'Email not found',
       // };
-    }
-  }
-
-  async login({ email, userId }) {
-    try {
-      const payload = { email: email, sub: userId };
-
-      const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
-      const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
-
-      const user = await UserRepository.getUserDetails(userId);
-
-      // store refreshToken
-      await this.redis.set(
-        `refresh_token:${user.id}`,
-        refreshToken,
-        'EX',
-        60 * 60 * 24 * 7, // 7 days in seconds
-      );
-
-      return {
-        success: true,
-        message: 'Logged in successfully',
-        authorization: {
-          type: 'bearer',
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        },
-        type: user.type,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message,
-      };
     }
   }
 
@@ -818,9 +1060,6 @@ export class AuthService {
   }
   // --------- end 2FA ---------
 
-
   // google log in using passport.js
   // linkedin log in using passport.js
-
-
 }

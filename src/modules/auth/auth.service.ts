@@ -32,7 +32,6 @@ export class AuthService {
     private mailService: MailService,
     @InjectRedis() private readonly redis: Redis,
   ) {}
-
   /*=================================================
                 Create student user start
   =================================================*/
@@ -40,7 +39,7 @@ export class AuthService {
   async createUser(data: CreateUserDto) {
     const hashedPassword = await bcrypt.hash(data.password, 10);
 
-    const userData: any = {
+    const userData = {
       first_name: data.first_name,
       last_name: data.last_name,
       email: data.email,
@@ -49,31 +48,55 @@ export class AuthService {
       type: data.type,
     };
 
-    // Student fields
-    if (data.type === 'student' && data.grade_level) {
-      userData.grade_level = data.grade_level;
+    // Type-specific validation
+    if (data.type === 'student') {
+      if (!data.grade_level) {
+        throw new HttpException(
+          'Grade level is required for students',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
     }
 
     // Teacher fields
     if (data.type === 'teacher') {
-      if (data.highest_education_level)
-        userData.highest_education_level = data.highest_education_level;
-      if (data.teaching_experience)
-        userData.teching_experience = data.teaching_experience;
-      if (data.subjects_taught) userData.subjects_taught = data.subjects_taught;
-      if (data.hourly_rate) userData.hourly_rate = data.hourly_rate;
-      if (data.about_me) userData.about_me = data.about_me;
-      if (data.general_availability)
-        userData.general_availability = data.general_availability;
-      if (data.city) userData.city = data.city;
-      if (data.avatar) userData.avatar = data.avatar;
-      if (data.is_agreed_terms !== undefined)
-        userData.is_agreed_terms = data.is_agreed_terms ? 1 : 0;
-      if (data.is_agree_application_process !== undefined)
-        userData.is_agree_application_process =
-          data.is_agree_application_process ? 1 : 0;
+      if (!data.highest_education_level) {
+        throw new HttpException(
+          'Highest education level is required for teachers',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (!data.teaching_experience) {
+        throw new HttpException(
+          'Teaching experience is required for teachers',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (!data.subjects_taught || data.subjects_taught.length === 0) {
+        throw new HttpException(
+          'At least one subject is required for teachers',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (data.hourly_rate === undefined || data.hourly_rate <= 0) {
+        throw new HttpException(
+          'Hourly rate is required and must be greater than 0 for teachers',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (data.is_agreed_terms !== true) {
+        throw new HttpException(
+          'You must agree to the terms to register as a teacher',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (data.is_agree_application_process !== true) {
+        throw new HttpException(
+          'You must agree to the application process to register as a teacher',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
     }
-
     // Check if email already exists
     const userEmailExist = await this.prisma.user.findUnique({
       where: { email: data.email },
@@ -133,68 +156,42 @@ export class AuthService {
                     Login user start
   =================================================*/
 
-  // src/auth/auth.service.ts
-  async loginUser(data: LoginUserDto) {
-    const { email, password } = data;
-
+  async login({ email, password }) {
     // Find user by email
     const user = await this.prisma.user.findUnique({ where: { email } });
-
-    if (!user) {
+    if (!user)
       throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
-    }
 
     // Compare password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
+    const isValid = await bcrypt.compare(password, user.password);
+    if (!isValid)
       throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
-    }
 
-    // Generate JWT
-    const payload = { id: user.id, email: user.email, type: user.type };
-    const token = this.jwtService.sign(payload);
+    const payload = { email: user.email, sub: user.id };
+
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
+    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+
+    // Store refresh token in Redis
+    await this.redis.set(
+      `refresh_token:${user.id}`,
+      refreshToken,
+      'EX',
+      60 * 60 * 24 * 7, // 7 days
+    );
 
     return {
-      access_token: token,
+      success: true,
+      message: 'Logged in successfully',
+      authorization: {
+        type: 'bearer',
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      },
+      type: user.type,
       user,
     };
   }
-
-  async login({ email, userId }) {
-    try {
-      const payload = { email: email, sub: userId };
-
-      const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
-      const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
-
-      const user = await UserRepository.getUserDetails(userId);
-
-      // store refreshToken
-      await this.redis.set(
-        `refresh_token:${user.id}`,
-        refreshToken,
-        'EX',
-        60 * 60 * 24 * 7, // 7 days in seconds
-      );
-
-      return {
-        success: true,
-        message: 'Logged in successfully',
-        authorization: {
-          type: 'bearer',
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        },
-        type: user.type,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message,
-      };
-    }
-  }
-
   /*=================================================
                 Login with google 
   =================================================*/
@@ -208,10 +205,10 @@ export class AuthService {
       const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
       const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
 
-      // Get user details from the repository
+      
       const user = await UserRepository.getUserDetails(userId);
 
-      // Store the refresh token in Redis (or any other store)
+      
       await this.redis.set(
         `refresh_token:${user.id}`,
         refreshToken,

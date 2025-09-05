@@ -6,7 +6,22 @@ import {
   IsEmail,
   IsOptional,
   IsBoolean,
+  ValidateIf,
 } from 'class-validator';
+
+export enum UserType {
+  USER = 'user',
+  STUDENT = 'student',
+  TEACHER = 'teacher',
+}
+
+function isStudent(obj: CreateUserDto) {
+  return obj.type === UserType.STUDENT;
+}
+
+function isTeacher(obj: CreateUserDto) {
+  return obj.type === UserType.TEACHER;
+}
 
 export class CreateUserDto {
   // common value
@@ -30,10 +45,10 @@ export class CreateUserDto {
   password: string;
 
   @ApiProperty({
-    type: String,
-    example: 'user',
+    enum: UserType,
+    example: UserType.STUDENT,
   })
-  type?: string;
+  type: UserType;
 
   @IsNotEmpty()
   @IsString()
@@ -41,23 +56,23 @@ export class CreateUserDto {
   phone_number: string;
 
   // Student value
-
-  @ApiProperty()
+  @ValidateIf(isStudent)
+  @IsNotEmpty({ message: 'Grade level is required for students' })
   @IsString()
-  @IsOptional()
+  @ApiProperty({ required: false })
   grade_level?: string;
 
-  // Teacher value
-
-  @IsOptional()
-  @ApiProperty({ required: false })
+  // ✅ Teacher-specific fields
+  @ValidateIf(isTeacher)
+  @IsNotEmpty()
   highest_education_level?: string;
 
-  @IsOptional()
-  @ApiProperty({ required: false })
+  @ValidateIf(isTeacher)
+  @IsNotEmpty()
   teaching_experience?: string;
 
-  @IsOptional()
+  @ValidateIf(isTeacher)
+  @IsNotEmpty()
   @ApiProperty({
     type: [String],
     example: ['Mathematics', 'Science'],
@@ -65,37 +80,45 @@ export class CreateUserDto {
   })
   subjects_taught?: string[];
 
-  @IsOptional()
+  @ValidateIf(isTeacher)
+  @IsNotEmpty()
   @ApiProperty({ required: false })
   hourly_rate?: number;
 
-  @IsOptional()
+  @ValidateIf(isTeacher)
+  @IsNotEmpty()
   @ApiProperty({ required: false })
   city?: string;
 
-  @IsOptional()
+  @ValidateIf(isTeacher)
+  @IsNotEmpty()
   @ApiProperty({ required: false })
   about_me?: string;
 
-  @IsOptional()
+  @ValidateIf(isTeacher)
+  @IsNotEmpty()
   @ApiProperty({ required: false })
   general_availability?: string;
 
+  @ValidateIf(isTeacher)
   @IsOptional()
   @ApiProperty({ required: false })
   avatar?: string;
 
-  @IsOptional()
+  @ValidateIf(isTeacher)
   @IsBoolean()
+  @IsNotEmpty()
   @ApiProperty({ required: false })
   is_agreed_terms?: boolean;
 
-  @IsOptional()
+  @ValidateIf(isTeacher)
   @IsBoolean()
+  @IsNotEmpty()
   @ApiProperty({ required: false })
   is_agree_application_process?: boolean;
 
   // Goggle OAuth
+  @IsOptional()
   @IsString()
   @ApiProperty()
   googleId: string;
@@ -105,10 +128,12 @@ export class CreateUserDto {
   @ApiProperty()
   picture?: string;
 
+  @IsOptional()
   @IsString()
   @ApiProperty()
   accessToken: string;
 
+  @IsOptional()
   @IsString()
   @ApiProperty()
   refreshToken: string;

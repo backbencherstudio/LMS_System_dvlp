@@ -60,6 +60,21 @@ export class AuthController {
           HttpStatus.BAD_REQUEST,
         );
 
+      // Type must be provided
+      if (!data.type) {
+        throw new HttpException(
+          'User type is required',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      if (!['student', 'teacher'].includes(data.type)) {
+        throw new HttpException(
+          'Invalid user type. Must be student, teacher or user',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
       // Call service to create user
       const user = await this.authService.createUser(data);
 
@@ -82,21 +97,25 @@ export class AuthController {
                 Login user start
   =================================================*/
 
-  @ApiOperation({ summary: 'User login' })
+  @ApiOperation({ summary: 'Login user' })
   @Post('login')
-  async login(@Body() data: LoginUserDto) {
+  async login(@Body() data: LoginUserDto, @Res() res: Response) {
     try {
-      const result = await this.authService.loginUser(data);
-      return {
-        success: true,
-        message: 'Login successful',
-        data: result,
-      };
+      const response = await this.authService.login(data);
+
+      // store refresh token in secure cookie
+      res.cookie('refresh_token', response.authorization.refresh_token, {
+        httpOnly: true,
+        secure: true, // set false if not using HTTPS in dev
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+      });
+
+      res.json(response);
     } catch (error) {
-      return {
-        success: false,
-        message: error.message || 'Login failed',
-      };
+      throw new HttpException(
+        error.message || 'Login failed',
+        HttpStatus.UNAUTHORIZED,
+      );
     }
   }
 

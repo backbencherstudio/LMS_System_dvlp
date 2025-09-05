@@ -1,23 +1,43 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, MinLength, IsEmail, IsOptional, IsBoolean } from 'class-validator';
+import { 
+  IsNotEmpty, 
+  IsString, 
+  MinLength, 
+  IsEmail, 
+  IsOptional, 
+  IsBoolean, 
+  ValidateIf 
+} from 'class-validator';
+
+export enum UserType {
+  USER = 'user',
+  STUDENT = 'student',
+  TEACHER = 'teacher',
+}
+
+function isStudent(obj: CreateUserDto) {
+  return obj.type === UserType.STUDENT;
+}
+
+function isTeacher(obj: CreateUserDto) {
+  return obj.type === UserType.TEACHER;
+}
 
 export class CreateUserDto {
 
-
-  // common value
+  // ✅ Common fields
+  @IsNotEmpty()
+  @ApiProperty()
+  first_name: string;
 
   @IsNotEmpty()
   @ApiProperty()
-  first_name?: string;
-
-  @IsNotEmpty()
-  @ApiProperty()
-  last_name?: string;
+  last_name: string;
 
   @IsNotEmpty()
   @IsEmail()
   @ApiProperty()
-  email?: string;
+  email: string;
 
   @IsNotEmpty()
   @MinLength(8, { message: 'Password should be minimum 8 characters' })
@@ -25,70 +45,72 @@ export class CreateUserDto {
   password: string;
 
   @ApiProperty({
-    type: String,
-    example: 'user',
+    enum: UserType,
+    example: UserType.STUDENT,
   })
-  type?: string;
-
+  type: UserType;
 
   @IsNotEmpty()
   @IsString()
   @ApiProperty()
-  phone_number: string;  
+  phone_number: string;
 
-
-  // Student value
-
-
-  @ApiProperty()
+  // ✅ Student-specific fields
+  @ValidateIf(isStudent)
+  @IsNotEmpty({ message: 'Grade level is required for students' })
   @IsString()
-  @IsOptional()
+  @ApiProperty({ required: false })
   grade_level?: string;
 
-
-  // Teacher value
-
-   @IsOptional()
-  @ApiProperty({ required: false })
+  // ✅ Teacher-specific fields
+  @ValidateIf(isTeacher)
+  @IsNotEmpty()
   highest_education_level?: string;
 
-  @IsOptional()
-  @ApiProperty({ required: false })
+  @ValidateIf(isTeacher)
+  @IsNotEmpty()
   teaching_experience?: string;
 
-  @IsOptional()
+  @ValidateIf(isTeacher)
+  @IsNotEmpty()
   @ApiProperty({ type: [String], example: ['Mathematics', 'Science'], required: false })
   subjects_taught?: string[];
 
-  @IsOptional()
+  @ValidateIf(isTeacher)
+  @IsNotEmpty()
   @ApiProperty({ required: false })
   hourly_rate?: number;
 
-  @IsOptional()
+  @ValidateIf(isTeacher)
+  @IsNotEmpty()
   @ApiProperty({ required: false })
   city?: string;
 
-  @IsOptional()
+  @ValidateIf(isTeacher)
+  @IsNotEmpty()
   @ApiProperty({ required: false })
   about_me?: string;
 
-  @IsOptional()
+  @ValidateIf(isTeacher)
+  @IsNotEmpty()
   @ApiProperty({ required: false })
   general_availability?: string;
 
-  @IsOptional()
+  @ValidateIf(isTeacher)
+  @IsOptional() 
   @ApiProperty({ required: false })
   avatar?: string;
 
-  @IsOptional()
+  @ValidateIf(isTeacher)
   @IsBoolean()
+  @IsNotEmpty()
   @ApiProperty({ required: false })
   is_agreed_terms?: boolean;
 
-  @IsOptional()
+  @ValidateIf(isTeacher)
   @IsBoolean()
+  @IsNotEmpty()
   @ApiProperty({ required: false })
   is_agree_application_process?: boolean;
-
 
 }

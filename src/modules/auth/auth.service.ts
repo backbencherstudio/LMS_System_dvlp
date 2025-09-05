@@ -56,10 +56,77 @@ export class AuthService {
           HttpStatus.BAD_REQUEST,
         );
       }
+
+      // only teacherfields
+      if (data.highest_education_level) {
+        throw new HttpException(
+          'Highest education level is Only for teachers not for students',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (data.teaching_experience) {
+        throw new HttpException(
+          'Teaching experience is Only for teachers not for students',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (data.general_availability) {
+        throw new HttpException(
+          'General Availability is Only for teachers not for students',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      if (data.city) {
+        throw new HttpException(
+          'city is Only for teachers not for students',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (data.about_me) {
+        throw new HttpException(
+          'about me is Only for teachers not for students',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      if (data.subjects_taught) {
+        throw new HttpException(
+          'At least one subject is Only for teachers not for students',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (data.hourly_rate !== undefined || data.hourly_rate >= 0) {
+        throw new HttpException(
+          'Hourly rate is required and must be greater than 0 for teachers  Only for teachers not for students',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      if (!data.is_agreed_terms === true) {
+        throw new HttpException(
+          'You must agree to the terms to for students',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      // if (data.is_agree_application_process === true) {
+      //   throw new HttpException(
+      //     'You must agree to the application process to register as a teacher Only for teachers not for students',
+      //     HttpStatus.BAD_REQUEST,
+      //   );
+      // }
     }
 
     // Teacher fields
     if (data.type === 'teacher') {
+      // only student fields
+      if (data.grade_level) {
+        throw new HttpException(
+          'Grade level is only required for students not for teachers',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // teacher fields
       if (!data.highest_education_level) {
         throw new HttpException(
           'Highest education level is required for teachers',
@@ -205,10 +272,8 @@ export class AuthService {
       const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
       const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
 
-      
       const user = await UserRepository.getUserDetails(userId);
 
-      
       await this.redis.set(
         `refresh_token:${user.id}`,
         refreshToken,

@@ -77,18 +77,18 @@ export class AuthService {
         );
       }
 
-      if (data.city) {
-        throw new HttpException(
-          'city is Only for teachers not for students',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      if (data.about_me) {
-        throw new HttpException(
-          'about me is Only for teachers not for students',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
+      // if (data.city) {
+      //   throw new HttpException(
+      //     'city is Only for teachers not for students',
+      //     HttpStatus.BAD_REQUEST,
+      //   );
+      // }
+      // if (data.about_me) {
+      //   throw new HttpException(
+      //     'about me is Only for teachers not for students',
+      //     HttpStatus.BAD_REQUEST,
+      //   );
+      // }
 
       if (data.subjects_taught) {
         throw new HttpException(
@@ -248,15 +248,15 @@ export class AuthService {
     );
 
     return {
-      success: true,
+      // success: true,
       message: 'Logged in successfully',
       authorization: {
-        type: 'bearer',
+        // type: 'bearer',
         access_token: accessToken,
         refresh_token: refreshToken,
       },
-      type: user.type,
-      user,
+      // type: user.type,
+      // user,
     };
   }
   /*=================================================
@@ -283,7 +283,7 @@ export class AuthService {
 
       // Return response with tokens
       return {
-        success: true,
+        // success: true,
         message: 'Logged in successfully',
         authorization: {
           type: 'bearer',

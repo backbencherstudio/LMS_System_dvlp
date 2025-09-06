@@ -34,9 +34,25 @@ export class AuthController {
 
   // Create user start
   @ApiOperation({ summary: 'Register a user' })
+  @UseInterceptors(
+    FileInterceptor('avatar', {
+      storage: memoryStorage(),
+      limits: {
+        fileSize: 5 * 1024 * 1024,
+      },
+    }),
+  )
   @Post('register')
-  async create(@Body() data: CreateUserDto) {
+  async create(
+    @Body() data: CreateUserDto,
+    @UploadedFile() avatar: Express.Multer.File,
+  ) {
     try {
+      // Handling the avatar file
+      if (avatar) {
+        data.avatar = avatar.path;
+      }
+
       const { first_name, last_name, email, password, type } = data;
 
       // Basic validation
@@ -73,7 +89,7 @@ export class AuthController {
         );
       }
 
-      const user = await this.authService.createUser(data);
+      const user = await this.authService.createUser(data, avatar);
 
       return {
         message: 'User registered successfully',
@@ -228,11 +244,8 @@ export class AuthController {
     @UploadedFile() image: Express.Multer.File,
   ) {
     try {
-      const user_id = req.user.userId;
-      // If user type is not available on req.user, set a default or handle accordingly
-      const user_type = (req.user as any).type || 'student'; // or handle as needed
-      console.log('user id in update', req.user);
-      // console.log('User Type:', user_type);
+      const user_id = req.user?.userId;
+      const user_type = req.user?.type;
 
       const response = await this.authService.updateUser(
         user_id,

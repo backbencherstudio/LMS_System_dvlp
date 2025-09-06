@@ -34,8 +34,17 @@ export class AuthService {
   ) {}
 
   // Create user start
-  async createUser(data: CreateUserDto) {
+  async createUser(data: CreateUserDto, avatar?: Express.Multer.File) {
     const hashedPassword = await bcrypt.hash(data.password, 10);
+
+    // Upload new file to storage
+    const fileName = `${StringHelper.randomString()}${avatar.originalname}`;
+    await SojebStorage.put(
+      appConfig().storageUrl.avatar + fileName,
+      avatar.buffer,
+    );
+
+    data.avatar = fileName;
 
     const userData = {
       first_name: data.first_name,
@@ -44,7 +53,7 @@ export class AuthService {
       password: hashedPassword,
       phone_number: data.phone_number,
       type: data.type,
-      // avatar: data.avatar,
+      avatar: data.avatar,
       grade_level: data.grade_level,
       highest_education_level: data.highest_education_level,
       teching_experience: data.teching_experience,
@@ -67,22 +76,35 @@ export class AuthService {
         );
       }
 
-      // only teacherfields
-      const teacherFields = [
-        'highest_education_level',
-        'teaching_experience',
-        'general_availability',
-        'subjects_taught',
-        'hourly_rate',
-      ];
-      teacherFields.map((field) => {
-        if (data[field]) {
+      switch (true) {
+        case !!data.highest_education_level:
           throw new HttpException(
-            `This field is only for teachers, not for students`,
+            'This field is only for teachers, not for students',
             HttpStatus.BAD_REQUEST,
           );
-        }
-      });
+        case !!data.teching_experience:
+          throw new HttpException(
+            'This field is only for teachers, not for students',
+            HttpStatus.BAD_REQUEST,
+          );
+        case !!data.general_availability:
+          throw new HttpException(
+            'This field is only for teachers, not for students',
+            HttpStatus.BAD_REQUEST,
+          );
+        case !!data.subjects_taught:
+          throw new HttpException(
+            'This field is only for teachers, not for students',
+            HttpStatus.BAD_REQUEST,
+          );
+        case !!data.hourly_rate:
+          throw new HttpException(
+            'This field is only for teachers, not for students',
+            HttpStatus.BAD_REQUEST,
+          );
+        default:
+          break;
+      }
     }
 
     // Teacher fields
@@ -328,38 +350,42 @@ export class AuthService {
       const data: any = {};
 
       // Common fields (for all types)
-      if (updateUserDto.first_name) {
-        data.first_name = updateUserDto.first_name;
-      }
-      if (updateUserDto.last_name) {
-        data.last_name = updateUserDto.last_name;
-      }
-      if (updateUserDto.phone_number) {
-        data.phone_number = updateUserDto.phone_number;
-      }
-      if (updateUserDto.country) {
-        data.country = updateUserDto.country;
-      }
-      if (updateUserDto.state) {
-        data.state = updateUserDto.state;
-      }
-      if (updateUserDto.local_government) {
-        data.local_government = updateUserDto.local_government;
-      }
-      if (updateUserDto.city) {
-        data.city = updateUserDto.city;
-      }
-      if (updateUserDto.zip_code) {
-        data.zip_code = updateUserDto.zip_code;
-      }
-      if (updateUserDto.address) {
-        data.address = updateUserDto.address;
-      }
-      if (updateUserDto.gender) {
-        data.gender = updateUserDto.gender;
-      }
-      if (updateUserDto.date_of_birth) {
-        data.date_of_birth = DateHelper.format(updateUserDto.date_of_birth);
+      switch (true) {
+        case !!updateUserDto.first_name:
+          data.first_name = updateUserDto.first_name;
+          break;
+        case !!updateUserDto.last_name:
+          data.last_name = updateUserDto.last_name;
+          break;
+        case !!updateUserDto.phone_number:
+          data.phone_number = updateUserDto.phone_number;
+          break;
+        case !!updateUserDto.country:
+          data.country = updateUserDto.country;
+          break;
+        case !!updateUserDto.state:
+          data.state = updateUserDto.state;
+          break;
+        case !!updateUserDto.local_government:
+          data.local_government = updateUserDto.local_government;
+          break;
+        case !!updateUserDto.city:
+          data.city = updateUserDto.city;
+          break;
+        case !!updateUserDto.zip_code:
+          data.zip_code = updateUserDto.zip_code;
+          break;
+        case !!updateUserDto.address:
+          data.address = updateUserDto.address;
+          break;
+        case !!updateUserDto.gender:
+          data.gender = updateUserDto.gender;
+          break;
+        case !!updateUserDto.date_of_birth:
+          data.date_of_birth = DateHelper.format(updateUserDto.date_of_birth);
+          break;
+        default:
+          break;
       }
 
       // Type-specific fields (only for students or teachers)
@@ -370,18 +396,18 @@ export class AuthService {
         }
 
         // only teacher can update these fields
-        const teacherOnlyFields = [
-          'subjects_taught',
-          'highest_education_level',
-          'teaching_experience',
-          'hourly_rate',
-        ];
-
-        teacherOnlyFields.forEach((field) => {
-          if (updateUserDto[field]) {
-            throw new Error(`This is only for teachers, not for students`);
-          }
-        });
+        switch (true) {
+          case !!updateUserDto.subjects_taught:
+            throw new Error('This is only for teachers, not for students');
+          case !!updateUserDto.highest_education_level:
+            throw new Error('This is only for teachers, not for students');
+          case !!updateUserDto.teaching_experience:
+            throw new Error('This is only for teachers, not for students');
+          case !!updateUserDto.hourly_rate:
+            throw new Error('This is only for teachers, not for students');
+          default:
+            break;
+        }
       }
       if (type === 'teacher') {
         // only Students can update these fields

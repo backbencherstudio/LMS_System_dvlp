@@ -69,7 +69,7 @@ export class CreateUserDto {
 
   @ValidateIf(isTeacher)
   @IsNotEmpty()
-  teaching_experience?: string;
+  teching_experience?: string;
 
   @ValidateIf(isTeacher)
   @IsNotEmpty()

@@ -1,8 +1,85 @@
 import { ApiProperty, PartialType } from '@nestjs/swagger';
 import { CreateUserDto } from './create-user.dto';
-import { IsOptional } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 
 export class UpdateUserDto extends PartialType(CreateUserDto) {
+  @IsOptional()
+  @IsString()
+  @ApiProperty({
+    description: 'First name of the user',
+    example: 'John',
+  })
+  first_name?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({
+    description: 'Last name of the user',
+    example: 'Doe',
+  })
+  last_name?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({
+    description: 'The grade level for students',
+    example: '10th Grade',
+  })
+  grade_level?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({
+    description: 'The highest education level for teachers',
+    example: 'Masters in Education',
+  })
+  highest_education_level?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({
+    description: 'Teaching experience for teachers',
+    example: '5 years',
+  })
+  teaching_experience?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({
+    description: 'List of subjects taught by teacher',
+    example: ['Math', 'Science'],
+  })
+  subjects_taught?: string[];
+
+  @IsOptional()
+  @ApiProperty({
+    description: 'Hourly rate for teachers',
+    example: 50,
+  })
+  hourly_rate?: number;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({
+    description: 'General availability for teachers',
+    example: 'Monday to Friday, 9 AM to 5 PM',
+  })
+  general_availability?: string;
+
+  @IsOptional()
+  @ApiProperty({
+    description: 'Terms agreement for user',
+    example: true,
+  })
+  is_agreed_terms?: boolean;
+
+  @IsOptional()
+  @ApiProperty({
+    description: 'Application process agreement for teachers',
+    example: true,
+  })
+  is_agree_application_process?: boolean;
+
   @IsOptional()
   @ApiProperty({
     description: 'Country',

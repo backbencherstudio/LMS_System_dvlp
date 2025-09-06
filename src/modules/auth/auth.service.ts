@@ -32,10 +32,8 @@ export class AuthService {
     private mailService: MailService,
     @InjectRedis() private readonly redis: Redis,
   ) {}
-  /*=================================================
-                Create student user start
-  =================================================*/
 
+  // Create user start
   async createUser(data: CreateUserDto) {
     const hashedPassword = await bcrypt.hash(data.password, 10);
 
@@ -46,6 +44,18 @@ export class AuthService {
       password: hashedPassword,
       phone_number: data.phone_number,
       type: data.type,
+      // avatar: data.avatar,
+      grade_level: data.grade_level,
+      highest_education_level: data.highest_education_level,
+      teching_experience: data.teching_experience,
+      subjects_taught: data.subjects_taught,
+      hourly_rate: data.hourly_rate,
+      general_availability: data.general_availability,
+      is_agreed_terms: data.is_agreed_terms ? 1 : 0,
+      is_agree_application_process: data.is_agree_application_process ? 1 : 0,
+      city: data.city,
+      about_me: data.about_me,
+      name: `${data.first_name} ${data.last_name}`,
     };
 
     // Type-specific validation
@@ -58,62 +68,21 @@ export class AuthService {
       }
 
       // only teacherfields
-      if (data.highest_education_level) {
-        throw new HttpException(
-          'Highest education level is Only for teachers not for students',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      if (data.teaching_experience) {
-        throw new HttpException(
-          'Teaching experience is Only for teachers not for students',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      if (data.general_availability) {
-        throw new HttpException(
-          'General Availability is Only for teachers not for students',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-
-      // if (data.city) {
-      //   throw new HttpException(
-      //     'city is Only for teachers not for students',
-      //     HttpStatus.BAD_REQUEST,
-      //   );
-      // }
-      // if (data.about_me) {
-      //   throw new HttpException(
-      //     'about me is Only for teachers not for students',
-      //     HttpStatus.BAD_REQUEST,
-      //   );
-      // }
-
-      if (data.subjects_taught) {
-        throw new HttpException(
-          'At least one subject is Only for teachers not for students',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      if (data.hourly_rate !== undefined || data.hourly_rate >= 0) {
-        throw new HttpException(
-          'Hourly rate is required and must be greater than 0 for teachers  Only for teachers not for students',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      if (!data.is_agreed_terms === true) {
-        throw new HttpException(
-          'You must agree to the terms to for students',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      // if (data.is_agree_application_process === true) {
-      //   throw new HttpException(
-      //     'You must agree to the application process to register as a teacher Only for teachers not for students',
-      //     HttpStatus.BAD_REQUEST,
-      //   );
-      // }
+      const teacherFields = [
+        'highest_education_level',
+        'teaching_experience',
+        'general_availability',
+        'subjects_taught',
+        'hourly_rate',
+      ];
+      teacherFields.map((field) => {
+        if (data[field]) {
+          throw new HttpException(
+            `This field is only for teachers, not for students`,
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+      });
     }
 
     // Teacher fields
@@ -133,7 +102,7 @@ export class AuthService {
           HttpStatus.BAD_REQUEST,
         );
       }
-      if (!data.teaching_experience) {
+      if (!data.teching_experience) {
         throw new HttpException(
           'Teaching experience is required for teachers',
           HttpStatus.BAD_REQUEST,
@@ -216,13 +185,9 @@ export class AuthService {
 
     return user;
   }
-  /*=================================================
-                Create student user start
-  =================================================*/
-  /*=================================================
-                    Login user start
-  =================================================*/
+  // create user end
 
+  // Login user start
   async login({ email, password }) {
     // Find user by email
     const user = await this.prisma.user.findUnique({ where: { email } });
@@ -234,7 +199,8 @@ export class AuthService {
     if (!isValid)
       throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
 
-    const payload = { email: user.email, sub: user.id };
+    const payload = { email: user.email, sub: user.id, type: user.type };
+    console.log('Payload:', payload.type);
 
     const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
     const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
@@ -259,9 +225,6 @@ export class AuthService {
       // user,
     };
   }
-  /*=================================================
-                Login with google 
-  =================================================*/
 
   // Method to generate JWT token after Google login
   async authenticateUser({ email, userId }: { email: string; userId: string }) {
@@ -299,10 +262,9 @@ export class AuthService {
       };
     }
   }
+  // login user end
 
-  /*=================================================
-                    Login user end
-  =================================================*/
+  // get user details
 
   async me(userId: string) {
     try {
@@ -358,12 +320,14 @@ export class AuthService {
 
   async updateUser(
     userId: string,
+    type: string,
     updateUserDto: UpdateUserDto,
     image?: Express.Multer.File,
   ) {
     try {
       const data: any = {};
 
+      // Common fields (for all types)
       if (updateUserDto.first_name) {
         data.first_name = updateUserDto.first_name;
       }
@@ -397,8 +361,54 @@ export class AuthService {
       if (updateUserDto.date_of_birth) {
         data.date_of_birth = DateHelper.format(updateUserDto.date_of_birth);
       }
+
+      // Type-specific fields (only for students or teachers)
+      if (type === 'student') {
+        // student fields
+        if (updateUserDto.grade_level) {
+          data.grade_level = updateUserDto.grade_level;
+        }
+
+        // only teacher can update these fields
+        const teacherOnlyFields = [
+          'subjects_taught',
+          'highest_education_level',
+          'teaching_experience',
+          'hourly_rate',
+        ];
+
+        teacherOnlyFields.forEach((field) => {
+          if (updateUserDto[field]) {
+            throw new Error(`This is only for teachers, not for students`);
+          }
+        });
+      }
+      if (type === 'teacher') {
+        // only Students can update these fields
+        if (updateUserDto.grade_level) {
+          throw new Error(
+            'only students can update this field, not for teachers',
+          );
+        }
+
+        // teacher fields
+        if (updateUserDto.highest_education_level) {
+          data.highest_education_level = updateUserDto.highest_education_level;
+        }
+        if (updateUserDto.teaching_experience) {
+          data.teaching_experience = updateUserDto.teaching_experience;
+        }
+        if (updateUserDto.subjects_taught) {
+          data.subjects_taught = updateUserDto.subjects_taught;
+        }
+        if (updateUserDto.hourly_rate) {
+          data.hourly_rate = updateUserDto.hourly_rate;
+        }
+      }
+
+      // If the user uploaded a new image (avatar)
       if (image) {
-        // delete old image from storage
+        // Delete old image from storage if it exists
         const oldImage = await this.prisma.user.findFirst({
           where: { id: userId },
           select: { avatar: true },
@@ -409,27 +419,34 @@ export class AuthService {
           );
         }
 
-        // upload file
+        // Upload new file to storage
         const fileName = `${StringHelper.randomString()}${image.originalname}`;
         await SojebStorage.put(
           appConfig().storageUrl.avatar + fileName,
           image.buffer,
         );
 
-        data.avatar = fileName;
+        data.avatar = fileName; // Add the new file name to data
       }
-      const user = await UserRepository.getUserDetails(userId);
+
+      // Check if user exists
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+      });
+
       if (user) {
-        await this.prisma.user.update({
+        // Update the user in the database
+        const updatedUser = await this.prisma.user.update({
           where: { id: userId },
           data: {
-            ...data,
+            ...data, // Merge the fields to update
           },
         });
 
         return {
           success: true,
           message: 'User updated successfully',
+          data: updatedUser,
         };
       } else {
         return {

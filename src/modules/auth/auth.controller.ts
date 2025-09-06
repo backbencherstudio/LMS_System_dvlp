@@ -32,9 +32,7 @@ import { GoogleAuthGuard } from './guards/google-auth.guard';
 export class AuthController {
   constructor(private authService: AuthService) {}
 
-  /*=================================================
-                Create user start
-  =================================================*/
+  // Create user start
   @ApiOperation({ summary: 'Register a user' })
   @Post('register')
   async create(@Body() data: CreateUserDto) {
@@ -75,20 +73,10 @@ export class AuthController {
         );
       }
 
-      // Call service to create user
       const user = await this.authService.createUser(data);
 
       return {
-        // success: true,
         message: 'User registered successfully',
-        // data: {
-        //   user: {
-        //     email: user.email,
-        //     firstName: user.first_name,
-        //     lastName: user.last_name,
-        //     type: user.type,
-        //   },
-        // },
       };
     } catch (error) {
       return {
@@ -97,12 +85,9 @@ export class AuthController {
       };
     }
   }
-  /*=================================================
-                Create user  user end
-  =================================================*/
-  /*=================================================
-                Login user start
-  =================================================*/
+  // Create user end
+
+  // Login user start
 
   @ApiOperation({ summary: 'Login user' })
   @Post('login')
@@ -113,8 +98,8 @@ export class AuthController {
       // store refresh token in secure cookie
       res.cookie('refresh_token', response.authorization.refresh_token, {
         httpOnly: true,
-        secure: true, // set false if not using HTTPS in dev
-        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+        secure: true,
+        maxAge: 1000 * 60 * 60 * 24 * 7,
       });
 
       res.json(response);
@@ -126,39 +111,9 @@ export class AuthController {
     }
   }
 
-  // @ApiOperation({ summary: 'Login user' })
-  // @UseGuards(LocalAuthGuard)
-  // @Post('login')
-  // async login(@Req() req: Request, @Res() res: Response) {
-  //   try {
-  //     const user_id = req.user.id;
+  // Login user end
 
-  //     const user_email = req.user.email;
-
-  //     const response = await this.authService.login({
-  //       userId: user_id,
-  //       email: user_email,
-  //     });
-
-  //     // store to secure cookies
-  //     res.cookie('refresh_token', response.authorization.refresh_token, {
-  //       httpOnly: true,
-  //       secure: true,
-  //       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
-  //     });
-
-  //     res.json(response);
-  //   } catch (error) {
-  //     return {
-  //       success: false,
-  //       message: error.message,
-  //     };
-  //   }
-  // }
-  /*=================================================
-                Login user end
-  =================================================*/
-
+  // get user details
   @ApiOperation({ summary: 'Get user details' })
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
@@ -178,8 +133,7 @@ export class AuthController {
     }
   }
 
-  // login user
-
+  // refresh token
   @ApiOperation({ summary: 'Refresh token' })
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
@@ -221,15 +175,10 @@ export class AuthController {
     }
   }
 
-  /*=================================================
-               Start Create Google OAuth user  
-  =================================================*/
-  // Route to initiate Google login
+  // Google login
   @Get('google')
-  @UseGuards(GoogleAuthGuard) // This will trigger the Google OAuth strategy
+  @UseGuards(GoogleAuthGuard)
   async googleAuth(@Req() req) {
-    // This will initiate the Google OAuth flow
-
     return HttpStatus.OK;
   }
 
@@ -237,13 +186,12 @@ export class AuthController {
   @Get('google/redirect')
   @UseGuards(GoogleAuthGuard)
   async googleAuthRedirect(@Req() req, @Res() res: Response) {
-    const { user, loginResponse } = req.user; // user and loginResponse returned from GoogleStrategy
+    const { user, loginResponse } = req.user;
 
     // Now, return the JWT tokens and the user info
     return res.json({
-      success: true,
       message: 'Logged in successfully via Google',
-      authorization: loginResponse.authorization, // Send access_token and refresh_token
+      authorization: loginResponse.authorization,
       user: {
         email: user.email,
         firstName: user.firstName,
@@ -252,20 +200,6 @@ export class AuthController {
       },
     });
   }
-  // @Get('google')
-  // @UseGuards(AuthGuard('google'))
-  // async googleLogin(): Promise<any> {
-  //   return HttpStatus.OK;
-  // }
-
-  // @Get('google/redirect')
-  // @UseGuards(AuthGuard('google'))
-  // async googleLoginRedirect(@Req() req: Request): Promise<any> {
-  //   return {
-  //     statusCode: HttpStatus.OK,
-  //     data: req.user,
-  //   };
-  // }
 
   // update user
   @ApiOperation({ summary: 'Update user' })
@@ -295,7 +229,17 @@ export class AuthController {
   ) {
     try {
       const user_id = req.user.userId;
-      const response = await this.authService.updateUser(user_id, data, image);
+      // If user type is not available on req.user, set a default or handle accordingly
+      const user_type = (req.user as any).type || 'student'; // or handle as needed
+      console.log('user id in update', req.user);
+      // console.log('User Type:', user_type);
+
+      const response = await this.authService.updateUser(
+        user_id,
+        user_type,
+        data,
+        image,
+      );
       return response;
     } catch (error) {
       return {

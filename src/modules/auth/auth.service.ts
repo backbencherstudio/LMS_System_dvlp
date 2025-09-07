@@ -31,22 +31,24 @@ export class AuthService {
     private prisma: PrismaService,
     private mailService: MailService,
     @InjectRedis() private readonly redis: Redis,
-  ) {}
+  ) { }
 
-  // Create user start
   async createUser(data: CreateUserDto, avatar?: Express.Multer.File) {
 
     const hashedPassword = await bcrypt.hash(data.password, 10);
 
-    // Upload new file to storage
-    const fileName = `${StringHelper.randomString()}${avatar?.originalname}`;
-    await SojebStorage.put(
-      appConfig().storageUrl.avatar + fileName,
-      avatar?.buffer,
-    );
+    if (avatar) {
+      const fileName = `${StringHelper.randomString()}${avatar?.originalname}`;
+      await SojebStorage.put(
+        appConfig().storageUrl.avatar + fileName,
+        avatar?.buffer,
+      );
 
-    data.avatar = fileName;
-
+      data.avatar = fileName;
+    }
+    else {
+      data.avatar = 'null';
+    }
     const userData = {
       first_name: data.first_name,
       last_name: data.last_name,
@@ -68,7 +70,6 @@ export class AuthService {
       name: `${data.first_name} ${data.last_name}`,
     };
 
-    // Type-specific validation
     if (data.type === 'student') {
       if (!data.grade_level) {
         throw new HttpException(
@@ -80,27 +81,27 @@ export class AuthService {
       switch (true) {
         case !!data.highest_education_level:
           throw new HttpException(
-            'This field is only for teachers, not for students',
+            'you do do not have permission to update this field',
             HttpStatus.BAD_REQUEST,
           );
         case !!data.teching_experience:
           throw new HttpException(
-            'This field is only for teachers, not for students',
+            'you do do not have permission to update this field',
             HttpStatus.BAD_REQUEST,
           );
         case !!data.general_availability:
           throw new HttpException(
-            'This field is only for teachers, not for students',
+            'you do do not have permission to update this field',
             HttpStatus.BAD_REQUEST,
           );
         case !!data.subjects_taught:
           throw new HttpException(
-            'This field is only for teachers, not for students',
+            'you do do not have permission to update this field',
             HttpStatus.BAD_REQUEST,
           );
         case !!data.hourly_rate:
           throw new HttpException(
-            'This field is only for teachers, not for students',
+            'you do do not have permission to update this field',
             HttpStatus.BAD_REQUEST,
           );
         default:
@@ -108,17 +109,13 @@ export class AuthService {
       }
     }
 
-    // Teacher fields
     if (data.type === 'teacher') {
-      // only student fields
       if (data.grade_level) {
         throw new HttpException(
           'Grade level is only required for students not for teachers',
           HttpStatus.BAD_REQUEST,
         );
       }
-
-      // teacher fields
       if (!data.highest_education_level) {
         throw new HttpException(
           'Highest education level is required for teachers',
@@ -156,7 +153,6 @@ export class AuthService {
         );
       }
     }
-    // Check if email already exists
     const userEmailExist = await this.prisma.user.findUnique({
       where: { email: data.email },
     });
@@ -165,10 +161,9 @@ export class AuthService {
       throw new HttpException('Email already exists', HttpStatus.BAD_REQUEST);
     }
 
-    // Create user
     const user = await this.prisma.user.create({ data: userData });
 
-    // Create Stripe customer account
+    // Creating Stripe customer account
     try {
       const stripeCustomer = await StripePayment.createCustomer({
         user_id: user.id,
@@ -183,18 +178,15 @@ export class AuthService {
         });
       }
     } catch (error) {
-      // Log error but don't fail user creation if Stripe fails
       console.error('Failed to create Stripe customer:', error);
     }
 
-    // Create verification token and send email
     try {
       const token = await UcodeRepository.createVerificationToken({
         userId: user.id,
         email: user.email,
       });
 
-      // Send verification email with token
       await this.mailService.sendVerificationLink({
         email: user.email,
         name: `${user.first_name} ${user.last_name}`,
@@ -202,22 +194,16 @@ export class AuthService {
         type: user.type,
       });
     } catch (error) {
-      // Log error but don't fail user creation if email sending fails
       console.error('Failed to send verification email:', error);
     }
 
     return user;
   }
-  // create user end
-
-  // Login user start
   async login({ email, password }) {
-    // Find user by email
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user)
       throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
 
-    // Compare password
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid)
       throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
@@ -228,7 +214,6 @@ export class AuthService {
     const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
     const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
 
-    // Store refresh token in Redis
     await this.redis.set(
       `refresh_token:${user.id}`,
       refreshToken,
@@ -237,58 +222,13 @@ export class AuthService {
     );
 
     return {
-      // success: true,
       message: 'Logged in successfully',
       authorization: {
-        // type: 'bearer',
         access_token: accessToken,
         refresh_token: refreshToken,
       },
-      // type: user.type,
-      // user,
     };
   }
-
-  // Method to generate JWT token after Google login
-  async authenticateUser({ email, userId }: { email: string; userId: string }) {
-    try {
-      const payload = { email: email, sub: userId }; // Create JWT payload
-
-      // Generate tokens
-      const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
-      const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
-
-      const user = await UserRepository.getUserDetails(userId);
-
-      await this.redis.set(
-        `refresh_token:${user.id}`,
-        refreshToken,
-        'EX',
-        60 * 60 * 24 * 7, // 7 days expiration
-      );
-
-      // Return response with tokens
-      return {
-        // success: true,
-        message: 'Logged in successfully',
-        authorization: {
-          type: 'bearer',
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        },
-        type: user.type,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message,
-      };
-    }
-  }
-  // login user end
-
-  // get user details
-
   async me(userId: string) {
     try {
       const user = await this.prisma.user.findFirst({
@@ -340,7 +280,6 @@ export class AuthService {
       };
     }
   }
-
   async updateUser(
     userId: string,
     type: string,
@@ -350,7 +289,6 @@ export class AuthService {
     try {
       const data: any = {};
 
-      // Common fields (for all types)
       switch (true) {
         case !!updateUserDto.first_name:
           data.first_name = updateUserDto.first_name;
@@ -389,36 +327,31 @@ export class AuthService {
           break;
       }
 
-      // Type-specific fields (only for students or teachers)
       if (type === 'student') {
-        // student fields
         if (updateUserDto.grade_level) {
           data.grade_level = updateUserDto.grade_level;
         }
 
-        // only teacher can update these fields
         switch (true) {
           case !!updateUserDto.subjects_taught:
-            throw new Error('This is only for teachers, not for students');
+            throw new Error('This is only for teachers');
           case !!updateUserDto.highest_education_level:
-            throw new Error('This is only for teachers, not for students');
+            throw new Error('This is only for teachers');
           case !!updateUserDto.teaching_experience:
-            throw new Error('This is only for teachers, not for students');
+            throw new Error('This is only for teachers');
           case !!updateUserDto.hourly_rate:
-            throw new Error('This is only for teachers, not for students');
+            throw new Error('This is only for teachers');
           default:
             break;
         }
       }
       if (type === 'teacher') {
-        // only Students can update these fields
         if (updateUserDto.grade_level) {
           throw new Error(
-            'only students can update this field, not for teachers',
+            'only students can update this field',
           );
         }
 
-        // teacher fields
         if (updateUserDto.highest_education_level) {
           data.highest_education_level = updateUserDto.highest_education_level;
         }
@@ -433,9 +366,7 @@ export class AuthService {
         }
       }
 
-      // If the user uploaded a new image (avatar)
       if (image) {
-        // Delete old image from storage if it exists
         const oldImage = await this.prisma.user.findFirst({
           where: { id: userId },
           select: { avatar: true },
@@ -446,34 +377,30 @@ export class AuthService {
           );
         }
 
-        // Upload new file to storage
         const fileName = `${StringHelper.randomString()}${image?.originalname}`;
         await SojebStorage.put(
           appConfig().storageUrl.avatar + fileName,
           image?.buffer,
         );
 
-        data.avatar = fileName; // Add the new file name to data
+        data.avatar = fileName;
       }
 
-      // Check if user exists
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
       });
 
       if (user) {
-        // Update the user in the database
-        const updatedUser = await this.prisma.user.update({
+        await this.prisma.user.update({
           where: { id: userId },
           data: {
-            ...data, // Merge the fields to update
+            ...data,
           },
         });
 
         return {
           success: true,
           message: 'User updated successfully',
-          data: updatedUser,
         };
       } else {
         return {
@@ -488,7 +415,6 @@ export class AuthService {
       };
     }
   }
-
   async validateUser(
     email: string,
     pass: string,
@@ -542,7 +468,6 @@ export class AuthService {
       // };
     }
   }
-
   async refreshToken(user_id: string, refreshToken: string) {
     try {
       const storedToken = await this.redis.get(`refresh_token:${user_id}`);
@@ -586,7 +511,6 @@ export class AuthService {
       };
     }
   }
-
   async revokeRefreshToken(user_id: string) {
     try {
       const storedToken = await this.redis.get(`refresh_token:${user_id}`);
@@ -610,7 +534,6 @@ export class AuthService {
       };
     }
   }
-
   async register({
     name,
     first_name,
@@ -720,7 +643,6 @@ export class AuthService {
       };
     }
   }
-
   async forgotPassword(email) {
     try {
       const user = await UserRepository.exist({
@@ -757,7 +679,6 @@ export class AuthService {
       };
     }
   }
-
   async resetPassword({ email, token, password }) {
     try {
       const user = await UserRepository.exist({
@@ -806,7 +727,6 @@ export class AuthService {
       };
     }
   }
-
   async verifyEmail({ email, token }) {
     try {
       const user = await UserRepository.exist({
@@ -859,7 +779,6 @@ export class AuthService {
       };
     }
   }
-
   async resendVerificationEmail(email: string) {
     try {
       const user = await UserRepository.getUserByEmail(email);
@@ -895,7 +814,6 @@ export class AuthService {
       };
     }
   }
-
   async changePassword({ user_id, oldPassword, newPassword }) {
     try {
       const user = await UserRepository.getUserDetails(user_id);
@@ -934,7 +852,6 @@ export class AuthService {
       };
     }
   }
-
   async requestEmailChange(user_id: string, email: string) {
     try {
       const user = await UserRepository.getUserDetails(user_id);
@@ -968,7 +885,6 @@ export class AuthService {
       };
     }
   }
-
   async changeEmail({
     user_id,
     new_email,
@@ -1035,7 +951,6 @@ export class AuthService {
       };
     }
   }
-
   async verify2FA(user_id: string, token: string) {
     try {
       const isValid = await UserRepository.verify2FA(user_id, token);
@@ -1056,7 +971,6 @@ export class AuthService {
       };
     }
   }
-
   async enable2FA(user_id: string) {
     try {
       const user = await UserRepository.getUserDetails(user_id);
@@ -1079,7 +993,6 @@ export class AuthService {
       };
     }
   }
-
   async disable2FA(user_id: string) {
     try {
       const user = await UserRepository.getUserDetails(user_id);
@@ -1102,9 +1015,45 @@ export class AuthService {
       };
     }
   }
+
+
   // --------- end 2FA ---------
 
   // google log in using passport.js
+  async googleLogin({ email, userId }: { email: string; userId: string }) {
+    try {
+      const payload = { email: email, sub: userId };
+
+      const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
+      const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+
+      const user = await UserRepository.getUserDetails(userId);
+
+      await this.redis.set(
+        `refresh_token:${user.id}`,
+        refreshToken,
+        'EX',
+        60 * 60 * 24 * 7, // 7 days expiration
+      );
+
+      // Return response with tokens
+      return {
+        // success: true,
+        message: 'Logged in successfully',
+        authorization: {
+          type: 'bearer',
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        },
+        type: user.type,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
   // linkedin log in using passport.js
 
   async authenticateLinkedInUser({ email, userId }: { email: string; userId: string }) {

@@ -49,7 +49,6 @@ export class AuthController {
     @UploadedFile() avatar?: Express.Multer.File,
   ) {
     try {
-      // Handling the avatar file
       if (avatar) {
         data.avatar = avatar.path;
       }
@@ -75,7 +74,6 @@ export class AuthController {
           HttpStatus.BAD_REQUEST,
         );
 
-      // Type must be provided
       if (!data.type) {
         throw new HttpException(
           'User type is required',
@@ -102,9 +100,8 @@ export class AuthController {
       };
     }
   }
-  // Create user end
 
-  // Login user start
+
 
   @ApiOperation({ summary: 'Login user' })
   @Post('login')
@@ -112,7 +109,6 @@ export class AuthController {
     try {
       const response = await this.authService.login(data);
 
-      // store refresh token in secure cookie
       res.cookie('refresh_token', response.authorization.refresh_token, {
         httpOnly: true,
         secure: true,
@@ -128,9 +124,7 @@ export class AuthController {
     }
   }
 
-  // Login user end
 
-  // get user details
   @ApiOperation({ summary: 'Get user details' })
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)

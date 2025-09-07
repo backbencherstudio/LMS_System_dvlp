@@ -61,7 +61,7 @@ model User {
   email_verified_at DateTime?
 
   // LinkedIn Authentication Fields
-  linkedinId    String? @unique // Store LinkedIn ID for OAuth
+  
 
   // Teacher-specific Fields
   highest_education_level      String?

@@ -29,7 +29,6 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
 
     console.log(accessToken, refreshToken, profile);
 
-    // Check if the user exists in the database by Google ID
     let user = await this.prisma.user.findUnique({
       where: {
         googleId: id,
@@ -37,7 +36,6 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     });
 
     if (!user) {
-      // If the user doesn't exist, create a new user
       user = await this.prisma.user.create({
         data: {
           googleId: id,
@@ -51,7 +49,6 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       });
     }
 
-    // After user is successfully found or created, log them in and return JWT tokens
     const loginResponse = await this.authService.authenticateUser({
       email: user.email,
       userId: user.id,

@@ -1053,6 +1053,40 @@ export class AuthService {
       };
     }
   }
+  async authenticateUser({ email, userId }: { email: string; userId: string }) {
+    try {
+      const payload = { email: email, sub: userId };
+ 
+      const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
+      const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+ 
+      const user = await UserRepository.getUserDetails(userId);
+ 
+      await this.redis.set(
+        `refresh_token:${user.id}`,
+        refreshToken,
+        'EX',
+        60 * 60 * 24 * 7, // 7 days expiration
+      );
+ 
+      // Return response with tokens
+      return {
+        // success: true,
+        message: 'Logged in successfully',
+        authorization: {
+          type: 'bearer',
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        },
+        type: user.type,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
   // --------- end 2FA ---------
 
   // google log in using passport.js

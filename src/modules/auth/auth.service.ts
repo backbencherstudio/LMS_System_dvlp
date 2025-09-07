@@ -37,10 +37,11 @@ export class AuthService {
   async createUser(data: CreateUserDto, avatar?: Express.Multer.File) {
     const hashedPassword = await bcrypt.hash(data.password, 10);
 
-    const fileName = `${StringHelper.randomString()}${avatar.originalname}`;
+    // Upload new file to storage
+    const fileName = `${StringHelper.randomString()}${avatar?.originalname}`;
     await SojebStorage.put(
       appConfig().storageUrl.avatar + fileName,
-      avatar.buffer,
+      avatar?.buffer,
     );
 
     data.avatar = fileName;
@@ -397,10 +398,10 @@ export class AuthService {
         }
 
         // Upload new file to storage
-        const fileName = `${StringHelper.randomString()}${image.originalname}`;
+        const fileName = `${StringHelper.randomString()}${image?.originalname}`;
         await SojebStorage.put(
           appConfig().storageUrl.avatar + fileName,
-          image.buffer,
+          image?.buffer,
         );
 
         data.avatar = fileName; // Add the new file name to data

@@ -126,10 +126,4 @@ export class TeacherService {
         Delete Teacher Session End
   ============================================*/
 
-
-
-
-
-
-// lastcurlebrate
 }

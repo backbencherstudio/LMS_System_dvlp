@@ -31,13 +31,12 @@ export class AuthService {
     private prisma: PrismaService,
     private mailService: MailService,
     @InjectRedis() private readonly redis: Redis,
-  ) {}
+  ) { }
 
-  // Create user start
+  // register user start
   async createUser(data: CreateUserDto, avatar?: Express.Multer.File) {
     const hashedPassword = await bcrypt.hash(data.password, 10);
 
-    // Upload new file to storage
     const fileName = `${StringHelper.randomString()}${avatar.originalname}`;
     await SojebStorage.put(
       appConfig().storageUrl.avatar + fileName,
@@ -67,7 +66,6 @@ export class AuthService {
       name: `${data.first_name} ${data.last_name}`,
     };
 
-    // Type-specific validation
     if (data.type === 'student') {
       if (!data.grade_level) {
         throw new HttpException(
@@ -79,27 +77,27 @@ export class AuthService {
       switch (true) {
         case !!data.highest_education_level:
           throw new HttpException(
-            'This field is only for teachers, not for students',
+            'you do do not have permission to update this field',
             HttpStatus.BAD_REQUEST,
           );
         case !!data.teching_experience:
           throw new HttpException(
-            'This field is only for teachers, not for students',
+            'you do do not have permission to update this field',
             HttpStatus.BAD_REQUEST,
           );
         case !!data.general_availability:
           throw new HttpException(
-            'This field is only for teachers, not for students',
+            'you do do not have permission to update this field',
             HttpStatus.BAD_REQUEST,
           );
         case !!data.subjects_taught:
           throw new HttpException(
-            'This field is only for teachers, not for students',
+            'you do do not have permission to update this field',
             HttpStatus.BAD_REQUEST,
           );
         case !!data.hourly_rate:
           throw new HttpException(
-            'This field is only for teachers, not for students',
+            'you do do not have permission to update this field',
             HttpStatus.BAD_REQUEST,
           );
         default:
@@ -155,7 +153,6 @@ export class AuthService {
         );
       }
     }
-    // Check if email already exists
     const userEmailExist = await this.prisma.user.findUnique({
       where: { email: data.email },
     });
@@ -164,7 +161,6 @@ export class AuthService {
       throw new HttpException('Email already exists', HttpStatus.BAD_REQUEST);
     }
 
-    // Create user
     const user = await this.prisma.user.create({ data: userData });
 
     // Create Stripe customer account
@@ -182,18 +178,15 @@ export class AuthService {
         });
       }
     } catch (error) {
-      // Log error but don't fail user creation if Stripe fails
       console.error('Failed to create Stripe customer:', error);
     }
 
-    // Create verification token and send email
     try {
       const token = await UcodeRepository.createVerificationToken({
         userId: user.id,
         email: user.email,
       });
 
-      // Send verification email with token
       await this.mailService.sendVerificationLink({
         email: user.email,
         name: `${user.first_name} ${user.last_name}`,
@@ -201,14 +194,11 @@ export class AuthService {
         type: user.type,
       });
     } catch (error) {
-      // Log error but don't fail user creation if email sending fails
       console.error('Failed to send verification email:', error);
     }
 
     return user;
   }
-  // create user end
-
   // Login user start
   async login({ email, password }) {
     // Find user by email
@@ -248,46 +238,7 @@ export class AuthService {
     };
   }
 
-  // Method to generate JWT token after Google login
-  async authenticateUser({ email, userId }: { email: string; userId: string }) {
-    try {
-      const payload = { email: email, sub: userId }; // Create JWT payload
-
-      // Generate tokens
-      const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
-      const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
-
-      const user = await UserRepository.getUserDetails(userId);
-
-      await this.redis.set(
-        `refresh_token:${user.id}`,
-        refreshToken,
-        'EX',
-        60 * 60 * 24 * 7, // 7 days expiration
-      );
-
-      // Return response with tokens
-      return {
-        // success: true,
-        message: 'Logged in successfully',
-        authorization: {
-          type: 'bearer',
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        },
-        type: user.type,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        message: error.message,
-      };
-    }
-  }
-  // login user end
-
-  // get user details
-
+  // get my details
   async me(userId: string) {
     try {
       const user = await this.prisma.user.findFirst({

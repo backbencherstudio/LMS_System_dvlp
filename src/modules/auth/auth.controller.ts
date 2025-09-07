@@ -45,7 +45,7 @@ export class AuthController {
   @Post('register')
   async create(
     @Body() data: CreateUserDto,
-    @UploadedFile() avatar: Express.Multer.File,
+    @UploadedFile() avatar?: Express.Multer.File,
   ) {
     try {
       // Handling the avatar file
@@ -223,7 +223,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Patch('update')
   @UseInterceptors(
-    FileInterceptor('image', {
+    FileInterceptor('avatar', {
       // storage: diskStorage({
       //   destination:
       //     appConfig().storageUrl.rootUrl + appConfig().storageUrl.avatar,

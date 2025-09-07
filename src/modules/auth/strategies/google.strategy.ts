@@ -49,7 +49,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       });
     }
 
-    const loginResponse = await this.authService.authenticateUser({
+    const loginResponse = await this.authService.googleLogin({
       email: user.email,
       userId: user.id,
     });

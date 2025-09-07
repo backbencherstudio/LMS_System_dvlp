@@ -52,6 +52,7 @@ model User {
 
   // Google Authentication Fields
   googleId          String?   @unique // Store Google ID for OAuth
+  linkedinId        String?   @unique // Store LinkedIn ID for OAuth
   firstName         String? // First name from Google
   lastName          String? // Last name from Google
   picture           String? // Google profile picture
@@ -104,10 +105,10 @@ model User {
   role_users                RoleUser[]
   payment_transactions      PaymentTransaction[]
   Create_Session            Create_Session[]
+  // Book_Session Book_Session[] @relation("teacher")
+  Book_Sessions             Book_Session[]
 
   @@map("users")
-  // Book_Session Book_Session[] @relation("teacher")
-  Book_Sessions Book_Session[]
 }
 
 model Ucode {
@@ -455,43 +456,46 @@ enum Mode {
   Virtual
   In_Person
 }
+
 model Create_Session {
   id         String    @id @default(cuid())
   created_at DateTime  @default(now())
   updated_at DateTime  @default(now())
   deleted_at DateTime?
 
-  user_id String?
-  user    User?   @relation(fields: [user_id], references: [id])
-  slots_available               Int?
+  user_id                       String?
+  user                          User?          @relation(fields: [user_id], references: [id])
+  slots_available               String?
   session_type                  String?
   subject                       String?
   session_charge                String?
-  mode                          Mode?      @default(Virtual)
-  join_link                     String?    
+  mode                          Mode?          @default(Virtual)
+  join_link                     String?
   available_slots_time_and_date DateTime[]
   pdf_attachment                String[]
+  Book_Session                  Book_Session[]
+
   @@map("create_sessions")
-  Book_Session Book_Session[]
 }
 
 model Book_Session {
-  id               String     @id @default(cuid())
-  created_at       DateTime   @default(now())
-  updated_at       DateTime   @default(now())
-  deleted_at       DateTime?
-  username         String?
-  subject          String?
-  user_id          String?
-  user             User?      @relation(fields: [user_id], references: [id])
+  id                 String               @id @default(cuid())
+  created_at         DateTime             @default(now())
+  updated_at         DateTime             @default(now())
+  deleted_at         DateTime?
+  username           String?
+  subject            String?
+  user_id            String?
+  user               User?                @relation(fields: [user_id], references: [id])
   // teacher_id       String?
   // teacher          User?      @relation("teacher", fields: [teacher_id], references: [id])
-  create_session_id String?
-  create_session   Create_Session? @relation(fields: [create_session_id], references: [id])
-  session_date     DateTime?
-  status           String? @default("pending")
-  @@map("book_sessions")
+  create_session_id  String?
+  create_session     Create_Session?      @relation(fields: [create_session_id], references: [id])
+  session_date       DateTime?
+  status             String?              @default("pending")
   Reschedule_Session Reschedule_Session[]
+
+  @@map("book_sessions")
 }
 
 model Reschedule_Session {
@@ -499,17 +503,18 @@ model Reschedule_Session {
   created_at DateTime  @default(now())
   updated_at DateTime  @default(now())
   deleted_at DateTime?
- 
-  username String?
-  subject  String?
+
+  username        String?
+  subject         String?
   book_session_id String?
   book_session    Book_Session? @relation(fields: [book_session_id], references: [id])
 
   rescheduled_date DateTime?
   reason           String?
-  is_accepted      Int?     @default(0)
-  is_rejected      Int?     @default(0)
-  reject_reason   String?
+  is_accepted      Int?      @default(0)
+  is_rejected      Int?      @default(0)
+  reject_reason    String?
+
   @@map("reschedule_sessions")
 }
 

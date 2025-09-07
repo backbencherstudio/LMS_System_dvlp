@@ -38,4 +38,8 @@ export class CreateSessionDto {
   @IsOptional()
   @IsDate()
   deleted_at?: Date;
+
+  @IsOptional()
+  @IsString()
+  slots_available?: string;
 }

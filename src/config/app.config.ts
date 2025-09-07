@@ -60,6 +60,11 @@ export default () => ({
       app_secret: process.env.GOOGLE_APP_SECRET,
       callback: process.env.GOOGLE_CALLBACK_URL,
     },
+    linkedin: {
+    client_id: process.env.LINKEDIN_CLIENT_ID,
+    client_secret: process.env.LINKEDIN_CLIENT_SECRET,
+    callback: process.env.LINKEDIN_CALLBACK_URL,
+  },
   },
 
   payment: {

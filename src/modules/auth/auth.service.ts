@@ -35,6 +35,7 @@ export class AuthService {
 
   // Create user start
   async createUser(data: CreateUserDto, avatar?: Express.Multer.File) {
+
     const hashedPassword = await bcrypt.hash(data.password, 10);
 
     // Upload new file to storage
@@ -1105,4 +1106,43 @@ export class AuthService {
 
   // google log in using passport.js
   // linkedin log in using passport.js
+
+  async authenticateLinkedInUser({ email, userId }: { email: string; userId: string }) {
+  try {
+    // Create JWT payload using LinkedIn details
+    const payload = { email: email, sub: userId }; 
+
+    // Generate tokens
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
+    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+
+    // Retrieve the user details from the database (adjust this as per your logic)
+    const user = await UserRepository.getUserDetails(userId);
+
+    // Store refresh token in Redis with a 7-day expiration
+    await this.redis.set(
+      `refresh_token:${user.id}`,
+      refreshToken,
+      'EX',
+      60 * 60 * 24 * 7, // 7 days expiration
+    );
+
+    // Return response with JWT tokens
+    return {
+      message: 'Logged in successfully via LinkedIn',
+      authorization: {
+        type: 'bearer',
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      },
+      type: user.type,  // User type (e.g., admin, user, etc.)
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.message,  // Return the error message if something goes wrong
+    };
+  }
+}
+
 }

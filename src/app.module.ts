@@ -21,6 +21,9 @@ import { AdminModule } from './modules/admin/admin.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { PaymentModule } from './modules/payment/payment.module';
 import { TeacherModule } from './modules/teacher/teacher.module';
+import { StudentsModule } from './modules/students/students.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { SchedulerService } from './SchedulerService';
 
 @Module({
   imports: [
@@ -48,6 +51,7 @@ import { TeacherModule } from './modules/teacher/teacher.module';
         port: +appConfig().redis.port,
       },
     }),
+     ScheduleModule.forRoot(),
     // disabling throttling for dev
     // ThrottlerModule.forRoot([
     //   {
@@ -76,6 +80,7 @@ import { TeacherModule } from './modules/teacher/teacher.module';
     ChatModule,
     PaymentModule,
     TeacherModule,
+    StudentsModule,
   ],
   controllers: [AppController],
   providers: [
@@ -88,7 +93,7 @@ import { TeacherModule } from './modules/teacher/teacher.module';
     //   provide: APP_GUARD,
     //   useClass: ThrottlerBehindProxyGuard,
     // },
-    AppService,
+    AppService, SchedulerService
   ],
 })
 export class AppModule {

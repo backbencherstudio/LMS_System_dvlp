@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 
 export function ConcurrencyErrorMiddleware<
   T extends Prisma.BatchPayload = Prisma.BatchPayload,
->(): Prisma.Middleware {
+>(): Prisma.Middleware<T> {
   return async (
     params: Prisma.MiddlewareParams,
     next: (params: Prisma.MiddlewareParams) => Promise<T>,

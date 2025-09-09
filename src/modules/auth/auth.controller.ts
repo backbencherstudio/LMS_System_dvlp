@@ -26,11 +26,13 @@ import appConfig from '../../config/app.config';
 import { AuthGuard } from '@nestjs/passport';
 import { LoginUserDto } from './dto/login-user.dto';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { use } from 'passport';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(private authService: AuthService , private prisma : PrismaService) {}
 
   // Create user start
   @ApiOperation({ summary: 'Register a user' })
@@ -423,7 +425,10 @@ export class AuthController {
     }
   }
 
-  @ApiOperation({ summary: 'Change email address' })
+
+
+  // need to fix
+@ApiOperation({ summary: 'Change email address' })
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Post('change-email')

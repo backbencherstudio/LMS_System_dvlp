@@ -471,6 +471,16 @@ export class UserRepository {
     new_email: string;
   }) {
     try {
+
+      const emailExist = await prisma.user.findFirst({
+        where: {
+          email: new_email,
+        },
+      });
+      if (emailExist) {
+        throw new Error('Email already in use');
+      }
+
       const user = await prisma.user.update({
         where: {
           id: user_id,

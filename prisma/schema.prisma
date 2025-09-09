@@ -107,6 +107,7 @@ model User {
   Create_Session            Create_Session[]
   // Book_Session Book_Session[] @relation("teacher")
   Book_Sessions             Book_Session[]
+  Reschedule_Session        Reschedule_Session[]
 
   @@map("users")
 }
@@ -471,6 +472,7 @@ model Create_Session {
   session_charge                String?
   mode                          Mode?          @default(Virtual)
   join_link                     String?
+  is_completed                  Int?           @default(0)
   available_slots_time_and_date DateTime[]
   pdf_attachment                String[]
   Book_Session                  Book_Session[]
@@ -493,6 +495,11 @@ model Book_Session {
   create_session     Create_Session?      @relation(fields: [create_session_id], references: [id])
   session_date       DateTime?
   status             String?              @default("pending")
+  is_cancelled       Int?                 @default(0)
+  is_joined          Int?                 @default(0)
+  is_completed       Int?                 @default(0)
+  is_request_for_reschedule Int?          @default(0)
+  session_period     String?
   Reschedule_Session Reschedule_Session[]
 
   @@map("book_sessions")
@@ -509,12 +516,16 @@ model Reschedule_Session {
   book_session_id String?
   book_session    Book_Session? @relation(fields: [book_session_id], references: [id])
 
+  user_id String?
+  user    User?   @relation(fields: [user_id], references: [id])
+
   rescheduled_date DateTime?
   reason           String?
   is_accepted      Int?      @default(0)
   is_rejected      Int?      @default(0)
   reject_reason    String?
 
+  @@unique([user_id, book_session_id])
   @@map("reschedule_sessions")
 }
 

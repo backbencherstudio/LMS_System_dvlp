@@ -382,8 +382,12 @@ export class AuthService {
           image?.buffer,
         );
 
-        data.avatar = fileName;
+        data.avatar = fileName;   
+        const fullImageUrl = `https://localhost:4010/${appConfig().storageUrl.avatar}${fileName}`;
+          console.log('Image URL:', fullImageUrl);
       }
+
+      
 
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
@@ -400,6 +404,7 @@ export class AuthService {
         return {
           success: true,
           message: 'User updated successfully',
+
         };
       } else {
         return {
@@ -411,6 +416,7 @@ export class AuthService {
       return {
         success: false,
         message: error.message,
+
       };
     }
   }
@@ -884,6 +890,9 @@ export class AuthService {
       };
     }
   }
+
+
+  //need to fix
   async changeEmail({
     user_id,
     new_email,
@@ -938,6 +947,7 @@ export class AuthService {
       };
     }
   }
+
 
   // --------- 2FA ---------
   async generate2FASecret(user_id: string) {
@@ -1054,4 +1064,5 @@ export class AuthService {
     }
   }
   // linkedin log in using passport.js
+
 }

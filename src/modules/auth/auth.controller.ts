@@ -27,6 +27,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { LoginUserDto } from './dto/login-user.dto';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { LinkedInAuthGuard } from './guards/linkedin-auth.guard';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @ApiTags('auth')
 @Controller('auth')

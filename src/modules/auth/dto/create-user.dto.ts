@@ -24,8 +24,7 @@ function isTeacher(obj: CreateUserDto) {
 }
 
 export class CreateUserDto {
-  // common value
-
+  // Common value
   @IsNotEmpty()
   @ApiProperty()
   first_name?: string;
@@ -117,11 +116,11 @@ export class CreateUserDto {
   @ApiProperty({ required: false })
   is_agree_application_process?: boolean;
 
-  // Goggle OAuth
+  // Google OAuth
   @IsOptional()
   @IsString()
   @ApiProperty()
-  googleId: string;
+  googleId?: string;
 
   @IsOptional()
   @IsString()
@@ -131,10 +130,10 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   @ApiProperty()
-  accessToken: string;
+  accessToken?: string;
 
   @IsOptional()
   @IsString()
   @ApiProperty()
-  refreshToken: string;
+  refreshToken?: string;
 }

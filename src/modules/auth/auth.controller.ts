@@ -524,31 +524,40 @@ export class AuthController {
   }
   // --------- end 2FA ---------
 
+  
   // LinkedIn login
-@Get('linkedin')
-@UseGuards(LinkedInAuthGuard)
-async linkedinAuth() {
-  return HttpStatus.OK;
-}
+  @Get('linkedin')
+  @UseGuards(LinkedInAuthGuard)
+  async linkedinAuth() {
+ 
+  }
 
-// LinkedIn redirect callback
-@Get('linkedin/redirect')
-@UseGuards(LinkedInAuthGuard)
-async linkedinAuthRedirect(@Req() req, @Res() res: Response) {
-  const { user, loginResponse } = req.user;
+  // LinkedIn callback
+  @Get('linkedin/redirect')
+  @UseGuards(LinkedInAuthGuard)
+  async linkedinAuthRedirect(@Req() req, @Res() res: Response) {
+    const { user, loginResponse } = req.user;
 
-  return res.json({
-    message: 'Logged in successfully via LinkedIn',
-    authorization: loginResponse.authorization,
-    user: {
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      picture: user.picture,
-    },
-  });
-}
+    if (user.email.includes('@example.com')) {
+      
+      return res.redirect(
+        `/complete-profile?user_id=${user.id}&access_token=${loginResponse.authorization.access_token}`
+      );
+    }
 
+    return res.json({
+      message: 'Logged in successfully via LinkedIn',
+      authorization: loginResponse.authorization,
+      user: {
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        picture: user.picture,
+      },
+    });
+  }
+
+  
 
 
 }    

@@ -63,7 +63,7 @@ export default () => ({
     linkedin: {
     client_id: process.env.LINKEDIN_CLIENT_ID,
     client_secret: process.env.LINKEDIN_CLIENT_SECRET,
-    callback: process.env.LINKEDIN_CALLBACK_URL,
+     callback: process.env.LINKEDIN_REDIRECT_URI,
   },
   },
 

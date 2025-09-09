@@ -15,7 +15,7 @@ export class LinkedInStrategy extends PassportStrategy(Strategy, 'linkedin') {
       clientID: appConfig().auth.linkedin.client_id,
       clientSecret: appConfig().auth.linkedin.client_secret,
       callbackURL: appConfig().auth.linkedin.callback,
-      scope: ['r_emailaddress', 'r_liteprofile'],
+      scope: ['email', 'profile'], 
     });
   }
 
@@ -45,7 +45,7 @@ export class LinkedInStrategy extends PassportStrategy(Strategy, 'linkedin') {
       });
     }
 
-    const loginResponse = await this.authService.authenticateUser({
+    const loginResponse = await this.authService.authenticateLinkedInUser({
       email: user.email,
       userId: user.id,
     });

@@ -4,6 +4,8 @@ import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { ExecutionContext } from '@nestjs/common';
+import { User } from '../admin/user/entities/user.entity';
+import { UserType } from './dto/create-user.dto';
 
 const mockAuthService = {
   me: jest.fn().mockResolvedValue({ id: 1, name: 'Test User' }),
@@ -84,7 +86,8 @@ describe('AuthController', () => {
       last_name: 'Doe',
       email: 'john@example.com',
       password: 'password',
-      type: 'user',
+      type: UserType.USER,
+      phone_number: '1234567890',
     };
     const result = await controller.create(dto);
     expect(result.success).toBe(true);

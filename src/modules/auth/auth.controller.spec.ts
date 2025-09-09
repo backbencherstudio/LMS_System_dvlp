@@ -84,7 +84,6 @@ describe('AuthController', () => {
       last_name: 'Doe',
       email: 'john@example.com',
       password: 'password',
-      type: 'user',
     };
     const result = await controller.create(dto);
     expect(result.success).toBe(true);

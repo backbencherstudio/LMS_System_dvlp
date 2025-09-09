@@ -263,13 +263,21 @@ export class TeacherService {
       where: { id: userId, type: 'teacher' },
     });
 
+    const allreqForATeacher = await this.prismaService.reschedule_Session.findMany({
+          where:{
+            book_session:{
+              create_session:{
+                user_id:userId
+              }
+            }
+          }
+    });
+
     if (!checkTeacher) {
       throw new NotFoundException('Teacher not found or user is not a teacher');
     }
     else {
-      return this.prismaService.reschedule_Session.findMany({
-
-      });
+      return allreqForATeacher;
     }
 
 

@@ -10,6 +10,7 @@ import { PrismaModule } from '../../prisma/prisma.module';
 import { MailModule } from '../../mail/mail.module';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
+import { LinkedInStrategy } from './strategies/linkedin.strategy';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { GoogleAuthGuard } from './guards/google-auth.guard';
     AuthService,
     LocalStrategy,
     JwtStrategy,
+    LinkedInStrategy,
     GoogleStrategy,
     GoogleAuthGuard,
   ],

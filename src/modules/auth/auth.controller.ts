@@ -26,8 +26,7 @@ import appConfig from '../../config/app.config';
 import { AuthGuard } from '@nestjs/passport';
 import { LoginUserDto } from './dto/login-user.dto';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { use } from 'passport';
+import { LinkedInAuthGuard } from './guards/linkedin-auth.guard';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -527,4 +526,41 @@ export class AuthController {
     }
   }
   // --------- end 2FA ---------
-}
+
+  
+  // LinkedIn login
+  @Get('linkedin')
+  @UseGuards(LinkedInAuthGuard)
+  async linkedinAuth() {
+ 
+  }
+
+  // LinkedIn callback
+  @Get('linkedin/redirect')
+  @UseGuards(LinkedInAuthGuard)
+  async linkedinAuthRedirect(@Req() req, @Res() res: Response) {
+    const { user, loginResponse } = req.user;
+
+    if (user.email.includes('@example.com')) {
+      
+      return res.redirect(
+        `/complete-profile?user_id=${user.id}&access_token=${loginResponse.authorization.access_token}`
+      );
+    }
+
+    return res.json({
+      message: 'Logged in successfully via LinkedIn',
+      authorization: loginResponse.authorization,
+      user: {
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        picture: user.picture,
+      },
+    });
+  }
+
+  
+
+
+}    

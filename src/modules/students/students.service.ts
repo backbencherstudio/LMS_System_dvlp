@@ -58,7 +58,7 @@ export class StudentsService {
     });
 
     if (alreadyBooked) {
-      throw new ConflictException('You have already booked this slot for this session');
+      return { message: 'You have already booked this session at the selected time' };
     }
 
     const bookedSession = await this.prisma.book_Session.create({
@@ -111,9 +111,9 @@ export class StudentsService {
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { first_name: true, last_name: true, avatar: true , type: true},
+      select: { first_name: true, last_name: true, avatar: true, type: true },
     });
-    if(user?.type !== 'student'){
+    if (user?.type !== 'student') {
       throw new BadRequestException('Only students can access their booked sessions');
     }
 
@@ -240,14 +240,14 @@ export class StudentsService {
   }
   async cancellSession(userId: string, sessionId: string) {
     const session = await this.prisma.book_Session.findFirst({
-      where: { id: sessionId, user_id: userId},
+      where: { id: sessionId, user_id: userId },
       select: {
         id: true,
         username: true,
         is_joined: true,
       },
     });
-    if(session?.is_joined === 1){
+    if (session?.is_joined === 1) {
       return { message: "You cannot cancel a session that has already been joined" };
     }
 

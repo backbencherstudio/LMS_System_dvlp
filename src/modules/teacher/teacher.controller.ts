@@ -6,6 +6,8 @@ import { CreateSessionDto } from './dto/create-session-teacher.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { log } from 'console';
 import { UpdateSessionDto } from './dto/update-session-teacher.dto';
+import { acceptReqDto } from './dto/accept-req.dto';
+import { use } from 'passport';
 
 @Controller('teacher')
 export class TeacherController {
@@ -26,12 +28,27 @@ export class TeacherController {
         }
 
         @UseGuards(JwtAuthGuard)
+        @Get('all-booked-sessions')
+        findAllBookedSessions(
+                @Req() req: any
+        ) {
+                const userId = req.user.userId;
+                return this.teacherService.getAllBookedSessionsForOneTeacher(userId);
+        }
+
+        @UseGuards(JwtAuthGuard)
         @Get('reschedule-requests')
         getAllRescheduleRequests(
                 @Req() req: any
         ) {
                 const userId = req.user.userId;
                 return this.teacherService.getallRequestsForReschedule(userId);
+        }
+
+
+        @Get("allteacher")
+        getAllTeachers() {
+                return this.teacherService.getAllTeachers();
         }
 
         @UseGuards(JwtAuthGuard)
@@ -53,6 +70,12 @@ export class TeacherController {
                 return this.teacherService.findOne(id);
         }
 
+
+        @Get('get/:id')
+        getOneTeacher(@Param('id') id: string) {
+                return this.teacherService.getATeacherById(id);
+        }
+
         @UseGuards(JwtAuthGuard)
         @Put('update-session/:id')
         async update(@Param('id') id: string,
@@ -67,6 +90,29 @@ export class TeacherController {
         remove(@Param('id') id: string, @Req() req: any) {
                 const userId = req.user.userId;
                 return this.teacherService.remove(id, userId);
+        }
+
+        @UseGuards(JwtAuthGuard)
+        @Post(':action/:requestId')
+        async handleRescheduleRequest(
+                @Param('action') action: string,
+                @Param('requestId') requestId: string,
+                @Body() acceptDto: acceptReqDto,
+                @Req() req: any
+        ) {
+                if (action !== 'accept' && action !== 'reject') {
+                        return { message: 'Invalid action. Please use "accept" or "reject".' };
+                }
+
+                const userId = req.user.userId;
+
+                const result = await this.teacherService.handleRequest(
+                        requestId,
+                        userId,
+                        action,
+                        acceptDto,
+                );
+                return result;
         }
 
 

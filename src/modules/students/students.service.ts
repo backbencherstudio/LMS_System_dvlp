@@ -94,6 +94,7 @@ export class StudentsService {
         is_joined: true || null,
         is_cancelled: true || null,
         is_completed: true || null,
+        is_request_for_reschedule: true || null,
         status: true || null,
         create_session: {
           select: {
@@ -106,6 +107,16 @@ export class StudentsService {
             join_link: true,
           },
         },
+        Reschedule_Session:{
+          select:{ id:true, 
+            subject :true,
+            reason :true,
+            is_accepted :true,
+            is_rejected :true,
+            reject_reason :true,
+            rescheduled_date :true,
+           }
+        }
       },
     });
 
@@ -131,6 +142,7 @@ export class StudentsService {
         status: booking.status || 'N/A',
         sessionDetails: {
           sessionId: booking.create_session.id,
+          teacherId: booking.create_session.user_id,
           teacherName: teacherName.trim() || 'N/A',
           avatar: avatar,
           sessionType: booking.create_session.session_type,
@@ -139,6 +151,16 @@ export class StudentsService {
           mode: booking.create_session.mode,
           joinLink: booking.create_session.join_link ?? 'N/A',
         },
+        rescheduleDetails: Array.isArray(booking.Reschedule_Session) && booking.Reschedule_Session.length > 0 ? {
+          requestId: booking.Reschedule_Session[0].id,
+          subject: booking.Reschedule_Session[0].subject,
+          reason: booking.Reschedule_Session[0].reason,
+          isAccepted: booking.Reschedule_Session[0].is_accepted === 1 ? true : false,
+          isRejected: booking.Reschedule_Session[0].is_rejected === 1 ? true : false,
+          rejectReason: booking.Reschedule_Session[0].reject_reason || 'N/A',
+          rescheduledDate: booking.Reschedule_Session[0].rescheduled_date ? new Date(booking.Reschedule_Session[0].rescheduled_date).toISOString() : 'N/A',
+        } : null,
+
       };
     });
 
@@ -334,6 +356,46 @@ export class StudentsService {
       console.error('Error in requestRescheduleSession service:', error);
       throw new Error(`Service error: ${error.message || error}`);
     }
+  } 
+  //get all students
+  async getAllStudents() {
+    const students = await this.prisma.user.findMany({
+      where: { type: 'student' },
+      select: {
+        id: true,
+        first_name: true,
+        last_name: true,
+        email: true,
+        avatar: true,
+        country: true,
+        city: true,
+        about_me: true,
+        created_at: true,
+      },
+    });
+    return { students };
   }
 
+  //get a student by id
+  async getAStudentById(id: string) {
+    const student = await this.prisma.user.findUnique({
+      where: { id, type: 'student' },
+      select: {
+        id: true,
+        first_name: true,
+        last_name: true,
+        email: true,
+        avatar: true,
+        country: true,
+        city: true,
+        about_me: true,
+        created_at: true,
+      },
+    });
+    if (!student) {
+      return { message: "Student not found" };
+
+    }
+    return { student };
+  }
 }

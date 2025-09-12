@@ -24,6 +24,7 @@ import { TeacherModule } from './modules/teacher/teacher.module';
 import { StudentsModule } from './modules/students/students.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { SchedulerService } from './SchedulerService';
+import { ExtrasModule } from './modules/extras/extras.module';
 
 @Module({
   imports: [
@@ -81,6 +82,7 @@ import { SchedulerService } from './SchedulerService';
     PaymentModule,
     TeacherModule,
     StudentsModule,
+    ExtrasModule,
   ],
   controllers: [AppController],
   providers: [

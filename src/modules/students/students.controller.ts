@@ -23,12 +23,23 @@ export class StudentsController {
     return this.studentsService.getAllBookedSessionsForStudent(userId);
   }
 
+  @Get("allstudents")
+  getAllStudents() {
+    return this.studentsService.getAllStudents();
+  }
+
 
   @UseGuards(JwtAuthGuard)
   @Get('completed-sessions')
   getAllCompletedSessionsForStudent(@Req() req: any) {
     const id = req.user.userId;
     return this.studentsService.getAllCompletedSessionsForStudent(id);
+  }
+
+
+  @Get('/:id')
+  findOne(@Param('id') id: string) {
+    return this.studentsService.getAStudentById(id);
   }
 
 

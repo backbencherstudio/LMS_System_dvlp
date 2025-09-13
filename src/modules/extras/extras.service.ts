@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { CreateReportDto } from './dto/create-report.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { CreateExtraDto } from './dto/create-reviews.dto';
 
 @Injectable()
 export class ExtrasService {
@@ -75,4 +76,53 @@ export class ExtrasService {
 
 
   }
+
+  //give rating to a teacher
+  async giveRatingToTeaher(createRivewDTO:CreateExtraDto, studentId:string, sessionId:string){
+    const session = await this.prismaService.book_Session.findUnique({
+      where: { id: sessionId },
+      select: { is_completed: true , is_joined: true},
+    });
+    if (!session || session.is_completed === 0) {
+      throw new Error("You can rate only completed sessions");
+    }
+
+    if(session.is_joined === 0){
+      throw new Error("You can rate only sessions which you have joined");
+    }
+
+    const existingReview = await this.prismaService.rate_Session.findFirst({
+      where: {
+        user_id: studentId,
+        book_session_id: sessionId,
+      },
+    });
+    if (existingReview) {
+      throw new Error("You have already given a review for this session");
+    }
+
+    //students can give rating only to those teachers who have taken their sessions
+    const bookedSession = await this.prismaService.book_Session.findUnique({
+      where: { id: sessionId },
+      select: { user_id: true },
+    });
+    if (!bookedSession && bookedSession.user_id !== studentId) {
+      return {
+        message: "You can give rating only to those teachers who have taken your sessions"
+      }
+    }
+
+    const review = await this.prismaService.rate_Session.create({
+      data: {
+        rating: createRivewDTO.rating,
+        comment: createRivewDTO.comment,
+        user_id: studentId,
+        book_session_id: sessionId,
+      }
+    });
+    return review;
+
+
+  }
+
 }

@@ -129,8 +129,8 @@ export class StudentsService {
             is_rejected: true,
             reject_reason: true,
             rescheduled_date: true,
-          },
-        },
+          }
+        }
       },
     });
 
@@ -430,7 +430,6 @@ export class StudentsService {
     });
     return { students };
   }
-
   //get a student by id
   async getAStudentById(id: string) {
     const student = await this.prisma.user.findUnique({

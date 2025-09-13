@@ -249,14 +249,14 @@ export class TeacherService {
     return { message: 'Session deleted successfully' };
   }
   async getallEndedSessionsForOneTeacher(userId: string) {
-    return this.prismaService.book_Session.findMany({
-      where: { is_completed: 0, create_session: { user_id: userId } },
-      select: {
-        create_session: {
-          where: { user_id: userId }
-        }
-      }
+    const myData = await this.prismaService.book_Session.findMany({
+      where: { is_completed: 1, create_session: { user_id: userId } },
     });
+
+    return {
+      success: true,
+      data: myData,
+    };
   }
   async getallRequestsForReschedule(userId: string) {
     const checkTeacher = await this.prismaService.user.findUnique({
@@ -399,8 +399,8 @@ export class TeacherService {
     });
 
     const formattedResults = (await all).map(booking => {
-      const teacherID = `${booking.create_session.user_id}`; 
-      
+      const teacherID = `${booking.create_session.user_id}`;
+
 
       const sessionId = booking.create_session.id;
       const subject = booking.create_session.subject;
@@ -429,14 +429,13 @@ export class TeacherService {
 
     return formattedResults;
   }
-
   //get all teachers
   async getAllTeachers() {
     return this.prismaService.user.findMany({
       where: { type: 'teacher' },
       select: {
         id: true,
-        first_name: true, 
+        first_name: true,
         last_name: true,
         email: true,
         avatar: true,

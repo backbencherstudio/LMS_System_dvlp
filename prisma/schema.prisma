@@ -74,6 +74,10 @@ model User {
   is_verified                  Int?     @default(0)
   is_agree_application_process Int?     @default(0)
   is_accepted                  Int?     @default(0)
+  is_restricted                Int?     @default(0)
+  restriction_reason          String?  @db.Text
+  restriction_period          DateTime?
+  
 
   phone_number  String?
   country       String?

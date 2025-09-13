@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req } fro
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ExtrasService } from './extras.service';
 import { CreateReportDto } from './dto/create-report.dto';
+import { CreateExtraDto } from './dto/create-reviews.dto';
 
 
 
@@ -17,10 +18,22 @@ export class ExtrasController {
     @Req() req: any,
   ) {
     const reporterId = req.user.userId;
-  console.log('Reporter ID:', reporterId);
-  console.log('Reported ID:', reportedId);
-    
-    return this.extrasService.createReport(createReportDto, reporterId , reportedId);
+    console.log('Reporter ID:', reporterId);
+    console.log('Reported ID:', reportedId);
+
+    return this.extrasService.createReport(createReportDto, reporterId, reportedId);
+  }
+
+
+  @Post('review/:session_id')
+  @UseGuards(JwtAuthGuard)
+  async createReview(
+    @Param('session_id') session_id: string,
+    @Body() createExtraDto: CreateExtraDto,
+    @Req() req: any,
+  ) {
+    const studentId = req.user.userId;
+    return this.extrasService.giveRatingToTeaher(createExtraDto, studentId, session_id);
   }
 
 

@@ -107,15 +107,16 @@ export class StudentsService {
             join_link: true,
           },
         },
-        Reschedule_Session:{
-          select:{ id:true, 
-            subject :true,
-            reason :true,
-            is_accepted :true,
-            is_rejected :true,
-            reject_reason :true,
-            rescheduled_date :true,
-           }
+        Reschedule_Session: {
+          select: {
+            id: true,
+            subject: true,
+            reason: true,
+            is_accepted: true,
+            is_rejected: true,
+            reject_reason: true,
+            rescheduled_date: true,
+          }
         }
       },
     });
@@ -356,7 +357,7 @@ export class StudentsService {
       console.error('Error in requestRescheduleSession service:', error);
       throw new Error(`Service error: ${error.message || error}`);
     }
-  } 
+  }
   //get all students
   async getAllStudents() {
     const students = await this.prisma.user.findMany({
@@ -375,7 +376,6 @@ export class StudentsService {
     });
     return { students };
   }
-
   //get a student by id
   async getAStudentById(id: string) {
     const student = await this.prisma.user.findUnique({

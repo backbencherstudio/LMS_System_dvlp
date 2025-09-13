@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { JwtService } from '@nestjs/jwt';
@@ -17,13 +22,16 @@ export class StudentsService {
     private prisma: PrismaService,
     private mailService: MailService,
     @InjectRedis() private readonly redis: Redis,
-  ) { }
-
+  ) {}
 
   create(createStudentDto: CreateStudentDto) {
     return 'This action adds a new student';
   }
-  async bookASession(sessionId: string, userId: string, createStudentDto: CreateStudentDto) {
+  async bookASession(
+    sessionId: string,
+    userId: string,
+    createStudentDto: CreateStudentDto,
+  ) {
     const slotDate = createStudentDto.slots;
     if (!slotDate) {
       throw new BadRequestException('Slot date is required');
@@ -37,16 +45,19 @@ export class StudentsService {
       throw new NotFoundException('Session not found');
     }
 
-    if (session.slots_available !== null && Number(session.slots_available) >= 15) {
+    if (
+      session.slots_available !== null &&
+      Number(session.slots_available) >= 15
+    ) {
       throw new BadRequestException('No slots available for this session');
     }
 
     const isSlotAvailable = session.available_slots_time_and_date.some(
-      (slot) => slot.toISOString() === slotDate.toISOString()
+      (slot) => slot.toISOString() === slotDate.toISOString(),
     );
 
     if (!isSlotAvailable) {
-      return { message: "Sorry no availbale slots on this time " }
+      return { message: 'Sorry no availbale slots on this time ' };
     }
 
     const alreadyBooked = await this.prisma.book_Session.findFirst({
@@ -58,7 +69,9 @@ export class StudentsService {
     });
 
     if (alreadyBooked) {
-      return { message: 'You have already booked this session at the selected time' };
+      return {
+        message: 'You have already booked this session at the selected time',
+      };
     }
 
     const bookedSession = await this.prisma.book_Session.create({
@@ -126,17 +139,21 @@ export class StudentsService {
       select: { first_name: true, last_name: true, avatar: true, type: true },
     });
     if (user?.type !== 'student') {
-      throw new BadRequestException('Only students can access their booked sessions');
+      throw new BadRequestException(
+        'Only students can access their booked sessions',
+      );
     }
 
     const teacherName = `${user?.first_name ?? ''} ${user?.last_name ?? ''}`;
     const avatar = user?.avatar ?? null;
 
-    const formattedBookings = bookings.map(booking => {
+    const formattedBookings = bookings.map((booking) => {
       return {
         bookingId: booking.id,
         studentUsername: booking.username,
-        sessionDate: booking.session_date ? new Date(booking.session_date).toISOString() : 'N/A',
+        sessionDate: booking.session_date
+          ? new Date(booking.session_date).toISOString()
+          : 'N/A',
         isJoined: booking.is_joined === 1 ? true : false,
         isCancelled: booking.is_cancelled === 1 ? true : false,
         isCompleted: booking.is_completed === 1 ? true : false,
@@ -152,16 +169,30 @@ export class StudentsService {
           mode: booking.create_session.mode,
           joinLink: booking.create_session.join_link ?? 'N/A',
         },
-        rescheduleDetails: Array.isArray(booking.Reschedule_Session) && booking.Reschedule_Session.length > 0 ? {
-          requestId: booking.Reschedule_Session[0].id,
-          subject: booking.Reschedule_Session[0].subject,
-          reason: booking.Reschedule_Session[0].reason,
-          isAccepted: booking.Reschedule_Session[0].is_accepted === 1 ? true : false,
-          isRejected: booking.Reschedule_Session[0].is_rejected === 1 ? true : false,
-          rejectReason: booking.Reschedule_Session[0].reject_reason || 'N/A',
-          rescheduledDate: booking.Reschedule_Session[0].rescheduled_date ? new Date(booking.Reschedule_Session[0].rescheduled_date).toISOString() : 'N/A',
-        } : null,
-
+        rescheduleDetails:
+          Array.isArray(booking.Reschedule_Session) &&
+          booking.Reschedule_Session.length > 0
+            ? {
+                requestId: booking.Reschedule_Session[0].id,
+                subject: booking.Reschedule_Session[0].subject,
+                reason: booking.Reschedule_Session[0].reason,
+                isAccepted:
+                  booking.Reschedule_Session[0].is_accepted === 1
+                    ? true
+                    : false,
+                isRejected:
+                  booking.Reschedule_Session[0].is_rejected === 1
+                    ? true
+                    : false,
+                rejectReason:
+                  booking.Reschedule_Session[0].reject_reason || 'N/A',
+                rescheduledDate: booking.Reschedule_Session[0].rescheduled_date
+                  ? new Date(
+                      booking.Reschedule_Session[0].rescheduled_date,
+                    ).toISOString()
+                  : 'N/A',
+              }
+            : null,
       };
     });
 
@@ -173,8 +204,8 @@ export class StudentsService {
     const completedSessions = await this.prisma.book_Session.findMany({
       where: {
         user_id: userId,
-        is_joined: 1,  // The student has joined the session
-        is_completed: 1,  // The session is marked as completed
+        is_joined: 1, // The student has joined the session
+        is_completed: 1, // The session is marked as completed
       },
       select: {
         id: true,
@@ -182,7 +213,8 @@ export class StudentsService {
         session_date: true || null,
         is_completed: true,
         session_period: true || null,
-        create_session: { // Directly select related create_session details
+        create_session: {
+          // Directly select related create_session details
           select: {
             id: true,
             user_id: true,
@@ -204,25 +236,31 @@ export class StudentsService {
     const teacherName = `${user?.first_name ?? ''} ${user?.last_name ?? ''}`;
     const avatar = user?.avatar ?? null;
 
-    const formattedCompletedSessions = completedSessions.map(session => {
-      const createSession = session.create_session ? session.create_session : null;
+    const formattedCompletedSessions = completedSessions.map((session) => {
+      const createSession = session.create_session
+        ? session.create_session
+        : null;
 
-      const sessionDetails = createSession ? {
-        sessionId: createSession.id,
-        teacherName: teacherName.trim() || 'N/A',
-        avatar: avatar,
-        sessionType: createSession.session_type,
-        subject: createSession.subject,
-        charge: createSession.session_charge,
-        mode: createSession.mode,
-        joinLink: createSession.join_link ?? 'N/A',
-        sessionPeriod: session.session_period || '60 mins',
-      } : {};
+      const sessionDetails = createSession
+        ? {
+            sessionId: createSession.id,
+            teacherName: teacherName.trim() || 'N/A',
+            avatar: avatar,
+            sessionType: createSession.session_type,
+            subject: createSession.subject,
+            charge: createSession.session_charge,
+            mode: createSession.mode,
+            joinLink: createSession.join_link ?? 'N/A',
+            sessionPeriod: session.session_period || '60 mins',
+          }
+        : {};
 
       return {
         sessionId: session.id,
         studentUsername: session.username,
-        sessionDate: session.session_date ? new Date(session.session_date).toISOString() : 'N/A',
+        sessionDate: session.session_date
+          ? new Date(session.session_date).toISOString()
+          : 'N/A',
         isCompleted: session.is_completed,
         sessionDetails,
       };
@@ -248,7 +286,7 @@ export class StudentsService {
     }
 
     if (session.is_cancelled === 1) {
-      return { message: "Cannot join a cancelled session" };
+      return { message: 'Cannot join a cancelled session' };
     }
 
     if (session.is_joined === 1) {
@@ -271,7 +309,9 @@ export class StudentsService {
       },
     });
     if (session?.is_joined === 1) {
-      return { message: "You cannot cancel a session that has already been joined" };
+      return {
+        message: 'You cannot cancel a session that has already been joined',
+      };
     }
 
     if (!session) {
@@ -283,7 +323,11 @@ export class StudentsService {
     });
     return { message: 'Session cancelled successfully' };
   }
-  async requestRescheduleSession(reqDTo: ReqDto, sessionId: string, userId: string) {
+  async requestRescheduleSession(
+    reqDTo: ReqDto,
+    sessionId: string,
+    userId: string,
+  ) {
     try {
       const req = await this.prisma.book_Session.findFirst({
         where: {
@@ -300,9 +344,9 @@ export class StudentsService {
           create_session_id: true,
           create_session: {
             select: {
-              user_id: true
-            }
-          }
+              user_id: true,
+            },
+          },
         },
       });
 
@@ -311,30 +355,40 @@ export class StudentsService {
       }
 
       if (req.is_joined === 1) {
-        return { message: 'You cannot reschedule a session that has already been joined' };
+        return {
+          message:
+            'You cannot reschedule a session that has already been joined',
+        };
       }
 
       if (req.is_cancelled === 1) {
         return { message: 'You cannot reschedule a cancelled session' };
       }
 
-      const existingRescheduleRequest = await this.prisma.reschedule_Session.findFirst({
-        where: {
-          user_id: userId,
-          book_session_id: sessionId,
-        },
-      });
-
+      const existingRescheduleRequest =
+        await this.prisma.reschedule_Session.findFirst({
+          where: {
+            user_id: userId,
+            book_session_id: sessionId,
+          },
+        });
 
       if (existingRescheduleRequest) {
-        return { message: 'A reschedule request has already been made for this session' };
+        return {
+          message:
+            'A reschedule request has already been made for this session',
+        };
       }
 
       const now = new Date();
       const sessionDate = new Date(req.session_date);
-      const sessionEndTime = new Date(sessionDate.getTime() + 60 * 60 * 1000);
+      // const sessionEndTime = new Date(sessionDate.getTime() + 60 * 60 * 1000);
+      const sessionEndTime = new Date(sessionDate.getTime() + 10 * 1000); // Adds 10 seconds
       if (now < sessionEndTime) {
-        return { message: 'Reschedule requests can only be made after the session end time' };
+        return {
+          message:
+            'Reschedule requests can only be made after the session end time',
+        };
       }
 
       await this.prisma.reschedule_Session.create({
@@ -393,8 +447,7 @@ export class StudentsService {
       },
     });
     if (!student) {
-      return { message: "Student not found" };
-
+      return { message: 'Student not found' };
     }
     return { student };
   }

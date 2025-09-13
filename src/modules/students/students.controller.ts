@@ -28,7 +28,7 @@ export class StudentsController {
     return this.studentsService.getAllStudents();
   }
 
-
+// eta dekhte hobe
   @UseGuards(JwtAuthGuard)
   @Get('completed-sessions')
   getAllCompletedSessionsForStudent(@Req() req: any) {
@@ -64,6 +64,7 @@ export class StudentsController {
     return this.studentsService.bookASession(sessionId, userId, createStudentDto);
   }
 
+  // cancel session baki ache
   @Patch('cancel-session/:sessionId')
   @UseGuards(JwtAuthGuard)
   async cancelSession(

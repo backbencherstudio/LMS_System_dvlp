@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { Strategy } from 'passport-linkedin-oauth2';
 import { AuthService } from '../auth.service';
 import appConfig from '../../../config/app.config';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { Strategy } from 'passport-google-oauth20';
 
 @Injectable()
 export class LinkedInStrategy extends PassportStrategy(Strategy, 'linkedin') {
@@ -15,7 +15,7 @@ export class LinkedInStrategy extends PassportStrategy(Strategy, 'linkedin') {
       clientID: appConfig().auth.linkedin.client_id,
       clientSecret: appConfig().auth.linkedin.client_secret,
       callbackURL: appConfig().auth.linkedin.callback,
-      scope: ['email', 'profile'], 
+      scope: ['email', 'profile'],
     });
   }
 

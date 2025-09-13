@@ -1,34 +1,65 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { StudentService } from './student.service';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
+import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
+import { RestrictedUserDto } from './dto/restricted-user.dto';
 
 @Controller('student')
 export class StudentController {
   constructor(private readonly studentService: StudentService) {}
 
-  // @Post()
-  // create(@Body() createStudentDto: CreateStudentDto) {
-  //   return this.studentService.create(createStudentDto);
-  // }
-
+  @UseGuards(JwtAuthGuard)
   @Get('book-sessions')
-  findAll() {
-    return this.studentService.findAll();
+  findAll(@Req() req: any) {
+    const type = req.user.type;
+    return this.studentService.findAll(type);
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.studentService.findOne(+id);
+  @UseGuards(JwtAuthGuard)
+  @Patch('restricted-user/:restrictedId')
+  restrictedUserAccess(
+    @Param('restrictedId') restrictedId: string,
+    @Body() dto: RestrictedUserDto,
+    @Req() req: any,
+  ) {
+    const type = req.user.type;
+    return this.studentService.restrictedUserAccess(
+      type,
+      restrictedId,
+      dto.restriction_period,
+      dto.restriction_reason,
+    );
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateStudentDto: UpdateStudentDto) {
-    return this.studentService.update(+id, updateStudentDto);
+  @UseGuards(JwtAuthGuard)
+  @Get('restricted-users')
+  getRestrictedUsers(@Req() req: any) {
+    const type = req.user.type;
+    return this.studentService.getRestrictedUsers(type);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Patch('unrestrict-user/:userId')
+  unrestrictUser(@Param('userId') userId: string, @Req() req: any) {
+    const type = req.user.type;
+    return this.studentService.unrestrictUser(type, userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.studentService.remove(+id);
+  remove(@Param('id') userId: string, @Req() req: any) {
+    const type = req.user.type;
+    return this.studentService.remove(userId, type);
   }
 }

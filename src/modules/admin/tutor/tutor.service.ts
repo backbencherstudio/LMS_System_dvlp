@@ -8,15 +8,11 @@ import { RestrictUserDto } from './dto/restrict-user.dto';
 @Injectable()
 export class TutorService {
 
-  constructor(private readonly prismaService: PrismaService) {}
-  
-  create(createTutorDto: CreateTutorDto) {
-    return 'This action adds a new tutor';
-  }
+  constructor(private readonly prismaService: PrismaService) { }
 
-   async findAll(type: string) {
+  async getAllTutors(type: string) {
 
-    if(type !== 'admin'){
+    if (type !== 'admin') {
       return {
         success: false,
         message: "You are not authorized to access this resource"
@@ -38,7 +34,7 @@ export class TutorService {
       },
     });
 
-  
+
     const formatted = sessions.map((s) => ({
       SESSION_ID: s.id,
       NAME: s.user?.name,
@@ -53,62 +49,35 @@ export class TutorService {
       data: formatted,
     };
   }
+  // Get all restricted users
+  async getAllRestrictedTeacher(type: string) {
+    if (type !== 'admin') {
+      return {
+        success: false,
+        message: 'Unauthorized access',
+        data: [],
+      };
+    }
 
-  // restricted access
-   // Restrict a user
-  async restrictUser(userId: string, restrictUserDto: RestrictUserDto) {
-
-    const user = await this.prismaService.user.findUnique({ where: { id: userId } });
-    if (!user) throw new NotFoundException("User not found");
-
-    return this.prismaService.user.update({
-      where: { id: userId },
-      data: {
+    const restrictedUsers = await this.prismaService.user.findMany({
+      where: {
         is_restricted: 1,
-        restriction_reason: restrictUserDto.reason,
-        restriction_period: restrictUserDto.period,
+        type: 'teacher',
       },
-    });
-  }
-
-  // Unrestrict a user
-  async unrestrictUser(userId: string) {
-    const user = await this.prismaService.user.findUnique({ where: { id: userId } });
-    if (!user) throw new NotFoundException("User not found");
-
-    return this.prismaService.user.update({
-      where: { id: userId },
-      data: {
-        is_restricted: 0,
-        restriction_reason: null,
-        restriction_period: null,
-      },
-    });
-  }
-
-   // Get all restricted users
-  async getRestrictedUsers() {
-    return this.prismaService.user.findMany({
-      where: { is_restricted: 1 },
       select: {
         id: true,
         name: true,
         email: true,
         restriction_reason: true,
         restriction_period: true,
+        is_restricted: true,
       },
     });
+
+    return {
+      success: true,
+      data: restrictedUsers,
+    };
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} tutor`;
-  }
-
-  update(id: number, updateTutorDto: UpdateTutorDto) {
-    return `This action updates a #${id} tutor`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} tutor`;
-  }
 }

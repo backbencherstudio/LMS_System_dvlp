@@ -6,9 +6,11 @@ import { Restriction_period } from '@prisma/client';
 
 @Injectable()
 export class StudentService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
-  async findAll(type: string) {
+
+  //find all students
+  async getAllstudetnds(type: string) {
     if (type !== 'admin') {
       return {
         success: false,
@@ -32,6 +34,18 @@ export class StudentService {
       },
     });
 
+    const studentsInfo = await this.prisma.user.findMany({
+      where: { type: 'student' },
+      select: {
+        id: true,
+        Book_Sessions: {
+          select: {
+            id: true
+          }
+        }
+      }
+    })
+
     const totalData = await Promise.all(
       studentBookedSessions.map(async (session) => {
         const total = await this.prisma.book_Session.count({
@@ -52,10 +66,9 @@ export class StudentService {
 
     return {
       success: true,
-      data: totalData,
+      data: studentsInfo,
     };
   }
-
   async restrictedUserAccess(
     type: string,
     restrictedId: string,
@@ -80,7 +93,14 @@ export class StudentService {
       };
     }
 
-    const updatedUser = await this.prisma.user.update({
+    if (user.is_restricted === 1) {
+      return {
+        success: false,
+        message: 'User is already restricted',
+      };
+    }
+
+    await this.prisma.user.update({
       where: { id: restrictedId },
       data: {
         is_restricted: 1,
@@ -94,19 +114,11 @@ export class StudentService {
       message: 'User restricted successfully',
     };
   }
-
-  async getRestrictedUsers(type: string) {
-    if (type !== 'admin') {
-      return {
-        success: false,
-        message: 'Unauthorized access',
-        data: [],
-      };
-    }
-
+  async getRestrictedUsers() {
     const restrictedUsers = await this.prisma.user.findMany({
       where: {
         is_restricted: 1,
+        type: 'student',
       },
       select: {
         id: true,
@@ -123,8 +135,7 @@ export class StudentService {
       data: restrictedUsers,
     };
   }
-
-  async unrestrictUser(type: string, userId: string) {
+  async unrestrictAUser(type: string, userId: string) {
     if (type !== 'admin') {
       return {
         success: false,
@@ -158,8 +169,7 @@ export class StudentService {
       message: 'User unrestricted successfully',
     };
   }
-
-  async remove(id: string, type: string) {
+  async delete(id: string, type: string) {
     if (type !== 'admin') {
       return {
         success: false,

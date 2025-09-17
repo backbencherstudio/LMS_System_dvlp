@@ -7,6 +7,8 @@ import { UserModule } from './user/user.module';
 import { NotificationModule } from './notification/notification.module';
 import { StudentModule } from './student/student.module';
 import { TutorModule } from './tutor/tutor.module';
+import { SessionsModule } from './sessions/sessions.module';
+import { HelpAndSupportModule } from './help_and_support/help_and_support.module';
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { TutorModule } from './tutor/tutor.module';
     NotificationModule,
     StudentModule,
     TutorModule,
+    SessionsModule,
+    HelpAndSupportModule,
   ],
 })
 export class AdminModule {}

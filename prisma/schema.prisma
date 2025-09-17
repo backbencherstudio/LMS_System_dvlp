@@ -126,6 +126,7 @@ model User {
   Rate_Session              Rate_Session[]
   Reporter                  Report[]             @relation("reporter")
   Reported                  Report[]             @relation("reported")
+  HelpAndSupport            HelpAndSupport[]
 
   @@map("users")
 }
@@ -487,9 +488,12 @@ model Create_Session {
   slots_available               String?
   session_type                  String?
   subject                       String?
+  status                        String?        @default("active")
   session_charge                String?
   mode                          Mode?          @default(Virtual)
   join_link                     String?
+  is_restricted                 Int?           @default(0)
+  restriction_reason            String?        @db.Text
   is_completed                  Int?           @default(0)
   available_slots_time_and_date DateTime[]
   pdf_attachment                String[]
@@ -592,5 +596,23 @@ model Report {
 }
 
 /////////////////////////////////
-// admin models /////////////////
+// Help and support model ///////
 /////////////////////////////////
+
+model HelpAndSupport {
+  id         String    @id @default(cuid())
+  created_at DateTime  @default(now())
+  updated_at DateTime  @default(now())
+  deleted_at DateTime?
+
+  full_name String?
+  email     String?
+  subject   String?
+  message   String? @db.Text
+  status    String? @default("solved")
+
+  user_id String?
+  user    User?   @relation(fields: [user_id], references: [id])
+
+  @@map("help_and_supports")
+}

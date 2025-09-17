@@ -11,33 +11,52 @@ import { AuthService } from 'src/modules/auth/auth.service';
 export class TutorController {
   constructor(private readonly tutorService: TutorService,
 
-  ) {}
+  ) { }
 
-  @Post()
-  create(@Body() createTutorDto: CreateTutorDto) {
-    return this.tutorService.create(createTutorDto);
-  }
 
   @UseGuards(JwtAuthGuard)
   @Get('all')
   findAll(@Req() req: any) {
     const type = req.user.type
-    return this.tutorService.findAll(type);
+    try {
+      if (type !== 'admin') {
+        return {
+          success: false,
+          message: 'unauthorized',
+        };
+      }
+      else {
+        return this.tutorService.getAllTutors(type);
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: 'An error occurred while deleting the user.',
+        error: error.message,
+      };
+    }
   }
-
   
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.tutorService.findOne(+id);
+  @UseGuards(JwtAuthGuard)
+  @Get('restricted-users')
+  getRestrictedUsers(@Req() req: any) {
+    const type = req.user.type;
+    try {
+      if (type !== 'admin') {
+        return {
+          success: false,
+          message: 'unauthorized',
+        };
+      } else {
+        return this.tutorService.getAllRestrictedTeacher(type);
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: 'An error occurred while deleting the user.',
+        error: error.message,
+      };
+    }
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateTutorDto: UpdateTutorDto) {
-    return this.tutorService.update(+id, updateTutorDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.tutorService.remove(+id);
-  }
 }

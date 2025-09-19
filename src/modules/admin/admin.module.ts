@@ -9,6 +9,7 @@ import { StudentModule } from './student/student.module';
 import { TutorModule } from './tutor/tutor.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { HelpAndSupportModule } from './help_and_support/help_and_support.module';
+import { WebInfroModule } from './web-infro/web-infro.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { HelpAndSupportModule } from './help_and_support/help_and_support.module
     TutorModule,
     SessionsModule,
     HelpAndSupportModule,
+    WebInfroModule,
   ],
 })
 export class AdminModule {}

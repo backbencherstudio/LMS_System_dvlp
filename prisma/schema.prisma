@@ -129,6 +129,8 @@ model User {
   HelpAndSupport            HelpAndSupport[]
 
   @@map("users")
+  Blog Blog[]
+  TeamMember TeamMember[]
 }
 
 model Ucode {
@@ -609,10 +611,54 @@ model HelpAndSupport {
   email     String?
   subject   String?
   message   String? @db.Text
-  status    String? @default("solved")
+  status    String? @default("unsolved")
 
   user_id String?
   user    User?   @relation(fields: [user_id], references: [id])
 
   @@map("help_and_supports")
+}
+
+/////////////////////////////////
+// website info /////////////////
+/////////////////////////////////
+
+enum category {
+Teacher
+Student
+}
+model Blog {
+  id         String    @id @default(cuid())
+  created_at DateTime  @default(now())
+  updated_at DateTime  @default(now())
+  deleted_at DateTime?
+
+  user_id String?
+  user    User?   @relation(fields: [user_id], references: [id])
+  title       String?
+  description String? @db.Text
+  image       String?
+  category    category?
+
+
+  @@map("blogs")
+}
+/////////////////////////////////
+// add a member /////////////////
+/////////////////////////////////
+
+model TeamMember {
+  id         String    @id @default(cuid())
+  created_at DateTime  @default(now())
+  updated_at DateTime  @default(now())
+  deleted_at DateTime?
+
+  name     String?
+  designation String?
+  image    String?
+  description String? @db.Text
+  user_id String?
+  user    User?   @relation(fields: [user_id], references: [id])
+
+  @@map("team_members")
 }

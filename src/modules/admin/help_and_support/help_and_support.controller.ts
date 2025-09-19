@@ -13,14 +13,15 @@ import { HelpAndSupportService } from './help_and_support.service';
 import { CreateHelpAndSupportDto } from './dto/create-help_and_support.dto';
 import { UpdateHelpAndSupportDto } from './dto/update-help_and_support.dto';
 import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
+import { use } from 'passport';
 
 @Controller('help-and-support')
 export class HelpAndSupportController {
   constructor(private readonly helpAndSupportService: HelpAndSupportService) {}
 
   @UseGuards(JwtAuthGuard)
-  @Post('send-us')
-  createTicket(
+  @Post('support-message')
+  createSupport(
     @Req() req: any,
     @Body() createHelpAndSupportDto: CreateHelpAndSupportDto,
   ) {
@@ -32,7 +33,7 @@ export class HelpAndSupportController {
       };
     }
     try {
-      return this.helpAndSupportService.createTicket(
+      return this.helpAndSupportService.createSupport(
         createHelpAndSupportDto,
         userId,
       );
@@ -46,8 +47,8 @@ export class HelpAndSupportController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get('all-messages')
-  findAll(@Req() req: any) {
+  @Get('all-support')
+  getAllSupport(@Req() req: any) {
     const type = req.user.type;
     try {
       if (type !== 'admin') {
@@ -56,7 +57,29 @@ export class HelpAndSupportController {
           message: 'unauthorized',
         };
       } else {
-        return this.helpAndSupportService.getAllMessages();
+        return this.helpAndSupportService.getAllSupport();
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: 'An error occurred',
+      };
+    }
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('one-support/:id')
+  getOneSupport(@Param('id') id: string, @Req() req: any) {
+    const type = req.user.type;
+    const userId = req.user.userId;
+    try {
+      if (type !== 'admin') {
+        return {
+          success: false,
+          message: 'unauthorized',
+        };
+      } else {
+        return this.helpAndSupportService.getOneSupport(id);
       }
     } catch (error) {
       return {

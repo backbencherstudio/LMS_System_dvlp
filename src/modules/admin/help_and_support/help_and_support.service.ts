@@ -8,7 +8,7 @@ export class HelpAndSupportService {
   constructor(private prisma: PrismaService) {}
 
   //create a help and support ticket forr users
-  async createTicket(
+  async createSupport(
     createHelpAndSupportDto: CreateHelpAndSupportDto,
     userId: string,
   ) {
@@ -29,12 +29,29 @@ export class HelpAndSupportService {
     };
   }
 
-  async getAllMessages() {
+  async getAllSupport() {
     const allMessages = await this.prisma.helpAndSupport.findMany();
     return {
       success: true,
       message: 'Help and support messages fetched successfully.',
       data: allMessages,
+    };
+  }
+
+  async getOneSupport(id: string) {
+    const message = await this.prisma.helpAndSupport.findUnique({
+      where: { id },
+    });
+    if (!message) {
+      return {
+        success: false,
+        message: 'Message not found',
+      };
+    }
+    return {
+      success: true,
+      message: 'Help and support message fetched successfully.',
+      data: message,
     };
   }
 }

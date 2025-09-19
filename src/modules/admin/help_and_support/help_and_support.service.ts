@@ -5,13 +5,36 @@ import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class HelpAndSupportService {
-  constructor(
-    private prisma: PrismaService
-  ) { }
+  constructor(private prisma: PrismaService) {}
 
   //create a help and support ticket forr users
-  async createTicket(createHelpAndSupportDto: CreateHelpAndSupportDto , userId: string) {
-   
+  async createTicket(
+    createHelpAndSupportDto: CreateHelpAndSupportDto,
+    userId: string,
+  ) {
+    const { full_name, email, subject, message } = createHelpAndSupportDto;
+    const newTicket = await this.prisma.helpAndSupport.create({
+      data: {
+        full_name,
+        email,
+        subject,
+        message,
+        user_id: userId,
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Help and support message created successfully.',
+    };
   }
 
+  async getAllMessages() {
+    const allMessages = await this.prisma.helpAndSupport.findMany();
+    return {
+      success: true,
+      message: 'Help and support messages fetched successfully.',
+      data: allMessages,
+    };
+  }
 }

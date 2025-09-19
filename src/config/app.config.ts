@@ -61,10 +61,10 @@ export default () => ({
       callback: process.env.GOOGLE_CALLBACK_URL,
     },
     linkedin: {
-    client_id: process.env.LINKEDIN_CLIENT_ID,
-    client_secret: process.env.LINKEDIN_CLIENT_SECRET,
-     callback: process.env.LINKEDIN_REDIRECT_URI,
-  },
+      client_id: process.env.LINKEDIN_CLIENT_ID,
+      client_secret: process.env.LINKEDIN_CLIENT_SECRET,
+      callback: process.env.LINKEDIN_REDIRECT_URI,
+    },
   },
 
   payment: {
@@ -93,6 +93,7 @@ export default () => ({
     websiteInfo: '/website-info',
     // chat
     attachment: '/attachment',
+    team: '/team',
   },
 
   defaultUser: {

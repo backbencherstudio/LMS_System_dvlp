@@ -109,30 +109,30 @@ export class StudentsController {
     }
   }
 
-  // @UseGuards(JwtAuthGuard)
-  // @Post('rateASession/:sessionID')
-  // async rateASession(
-  //   @Param('sessionID') sessionID: string,
-  //   @Req() req: any,
-  //   @Body() body: StudentRatingDto,
-  // ) {
-  //   try {
-  //     const userId = req.user.userId;
-  //     const response = await this.studentsService.rateASession(
-  //       body,
-  //       sessionID,
-  //       userId,
-  //     );
-  //     return response;
-  //   } catch (error) {
-  //     console.error('Error in rateASession controller:', error);
-  //     if (
-  //       error instanceof NotFoundException ||
-  //       error instanceof BadRequestException
-  //     ) {
-  //       throw error;
-  //     }
-  //     throw new Error(`Unexpected error: ${error.message || error}`);
-  //   }
-  // }
+  @UseGuards(JwtAuthGuard)
+  @Post('rateASession/:sessionID')
+  async rateASession(
+    @Param('booksessionID') bookSessionID: string,
+    @Req() req: any,
+    @Body() body: StudentRatingDto,
+  ) {
+    try {
+      const userId = req.user.userId;
+      const response = await this.studentsService.rateASession(
+        body,
+        bookSessionID,
+        userId,
+      );
+      return response;
+    } catch (error) {
+      console.error('Error in rateASession controller:', error);
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      throw new Error(`Unexpected error: ${error.message || error}`);
+    }
+  }
 }

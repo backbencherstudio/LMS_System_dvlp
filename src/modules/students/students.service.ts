@@ -25,7 +25,7 @@ export class StudentsService {
     private prisma: PrismaService,
     private mailService: MailService,
     @InjectRedis() private readonly redis: Redis,
-  ) {}
+  ) { }
 
   create(createStudentDto: CreateStudentDto) {
     return 'This action adds a new student';
@@ -174,27 +174,27 @@ export class StudentsService {
         },
         rescheduleDetails:
           Array.isArray(booking.Reschedule_Session) &&
-          booking.Reschedule_Session.length > 0
+            booking.Reschedule_Session.length > 0
             ? {
-                requestId: booking.Reschedule_Session[0].id,
-                subject: booking.Reschedule_Session[0].subject,
-                reason: booking.Reschedule_Session[0].reason,
-                isAccepted:
-                  booking.Reschedule_Session[0].is_accepted === 1
-                    ? true
-                    : false,
-                isRejected:
-                  booking.Reschedule_Session[0].is_rejected === 1
-                    ? true
-                    : false,
-                rejectReason:
-                  booking.Reschedule_Session[0].reject_reason || 'N/A',
-                rescheduledDate: booking.Reschedule_Session[0].rescheduled_date
-                  ? new Date(
-                      booking.Reschedule_Session[0].rescheduled_date,
-                    ).toISOString()
-                  : 'N/A',
-              }
+              requestId: booking.Reschedule_Session[0].id,
+              subject: booking.Reschedule_Session[0].subject,
+              reason: booking.Reschedule_Session[0].reason,
+              isAccepted:
+                booking.Reschedule_Session[0].is_accepted === 1
+                  ? true
+                  : false,
+              isRejected:
+                booking.Reschedule_Session[0].is_rejected === 1
+                  ? true
+                  : false,
+              rejectReason:
+                booking.Reschedule_Session[0].reject_reason || 'N/A',
+              rescheduledDate: booking.Reschedule_Session[0].rescheduled_date
+                ? new Date(
+                  booking.Reschedule_Session[0].rescheduled_date,
+                ).toISOString()
+                : 'N/A',
+            }
             : null,
       };
     });
@@ -246,16 +246,16 @@ export class StudentsService {
 
       const sessionDetails = createSession
         ? {
-            sessionId: createSession.id,
-            teacherName: teacherName.trim() || 'N/A',
-            avatar: avatar,
-            sessionType: createSession.session_type,
-            subject: createSession.subject,
-            charge: createSession.session_charge,
-            mode: createSession.mode,
-            joinLink: createSession.join_link ?? 'N/A',
-            sessionPeriod: session.session_period || '60 mins',
-          }
+          sessionId: createSession.id,
+          teacherName: teacherName.trim() || 'N/A',
+          avatar: avatar,
+          sessionType: createSession.session_type,
+          subject: createSession.subject,
+          charge: createSession.session_charge,
+          mode: createSession.mode,
+          joinLink: createSession.join_link ?? 'N/A',
+          sessionPeriod: session.session_period || '60 mins',
+        }
         : {};
 
       return {
@@ -455,71 +455,61 @@ export class StudentsService {
     return { student };
   }
 
-  // async rateASession(
-  //   body: StudentRatingDto,
-  //   sessionID: string,
-  //   userId: string,
-  // ) {
-  //   try {
+  async rateASession(
+    body: StudentRatingDto,
+    bookSessionID: string,
+    userId: string,
+  ) {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { type: true },
+      });
 
-  //     const user = await this.prisma.user.findUnique({
-  //       where: { id: userId },
-  //       select: { type: true },
-  //     });
+      if (!user || user.type !== 'student') {
+        return {message:" Unauthorized: Only students can rate sessions "};
+      }
 
-  //     if (!user || user.type !== 'student') {
-  //       throw new BadRequestException(
-  //         'Unauthorized: Only students can rate sessions',
-  //       );
-  //     }
+      const bookSession = await this.prisma.book_Session.findFirst({
+        where: {
+          user_id: userId,
+          id: bookSessionID,
+        },
+        select: { id: true, create_session_id: true },
+      });
 
-  //     const bookSession = await this.prisma.book_Session.findFirst({
-  //       where: { user_id: userId, create_session_id: sessionID },
-  //       select: {
-  //         create_session_id: true,
-  //       },
-  //     });
+      if (!bookSession) {
+        return { message: 'Booking session not found' };
+      }
 
-  //     if (!bookSession || !bookSession.create_session_id) {
-  //       return { message: 'You have not booked this session' };
-  //     }
+      const existingRating = await this.prisma.rate_Session.findFirst({
+        where: {
+          user_id: userId,
+          book_session_id: bookSession.id,
+        },
+      });
 
-  //     let bookSessionId = bookSession.create_session_id;
+      if (existingRating) {
+        return { message: 'You have already rated this session' };
+      }
 
-  //     const validSession = await this.prisma.book_Session.findFirst({
-  //       where: { create_session_id: sessionID },
-  //     });
+      const createRateASession = await this.prisma.rate_Session.create({
+        data: {
+          user_id: userId,
+          rating: body.rating,
+          book_session_id: bookSession.id,
+          comment: body.comment,
+          create_session_id: bookSession.create_session_id,
+        },
+      });
 
-  //     if (!validSession) {
-  //       return {
-  //         message: 'The session does not exist or is invalid for rating',
-  //       };
-  //     }
+      return { message: 'Session rated successfully', createRateASession };
+    } catch (error) {
+      console.error('Error in rateASession service:', error);
+      throw new Error(`Service error: ${error.message || error}`);
+    }
+  }
 
-  //     const existingRating = await this.prisma.rate_Session.findFirst({
-  //       where: {
-  //         user_id: userId,
-  //         book_session_id: sessionID,
-  //       },
-  //     });
 
-  //     if (existingRating) {
-  //       return { message: 'You have already rated this session' };
-  //     }
 
-  //     const review = await this.prisma.rate_Session.create({
-  //       data: {
-  //         user_id: userId,
-  //         rating: body.rating,
-  //         comment: body.comment,
-  //         book_session_id: sessionID,
-  //       },
-  //     });
-
-  //     return { message: 'Session rated successfully', bookSession, review };
-  //   } catch (error) {
-  //     console.error('Error in rateASession service:', error);
-  //     throw new Error(`Service error: ${error.message || error}`);
-  //   }
-  // }
 }

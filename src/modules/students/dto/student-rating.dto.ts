@@ -10,4 +10,5 @@ export class StudentRatingDto {
 
   @IsString()
   comment: string;
+
 }

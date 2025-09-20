@@ -502,6 +502,8 @@ model Create_Session {
   Book_Session                  Book_Session[]
 
   @@map("create_sessions")
+
+  Rate_Session Rate_Session[]
 }
 
 model Book_Session {
@@ -541,6 +543,8 @@ model Reschedule_Session {
   book_session_id String?
   book_session    Book_Session? @relation(fields: [book_session_id], references: [id])
 
+
+
   user_id String?
   user    User?   @relation(fields: [user_id], references: [id])
 
@@ -570,6 +574,9 @@ model Rate_Session {
 
   book_session_id String?
   book_session    Book_Session? @relation(fields: [book_session_id], references: [id])
+
+  create_session_id String?
+  create_session    Create_Session? @relation(fields: [create_session_id], references: [id])
 
   rating  Int?
   comment String?

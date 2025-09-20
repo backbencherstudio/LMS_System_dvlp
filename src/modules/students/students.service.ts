@@ -14,6 +14,9 @@ import Redis from 'ioredis';
 import { InjectRedis } from '@nestjs-modules/ioredis';
 import { Prisma } from '@prisma/client';
 import { ReqDto } from './dto/req.dto';
+import { Body } from '@nestjs/common';
+import { StudentRatingDto } from './dto/student-rating.dto';
+import { Role } from '../../common/guard/role/role.enum';
 
 @Injectable()
 export class StudentsService {
@@ -129,8 +132,8 @@ export class StudentsService {
             is_rejected: true,
             reject_reason: true,
             rescheduled_date: true,
-          }
-        }
+          },
+        },
       },
     });
 
@@ -451,4 +454,72 @@ export class StudentsService {
     }
     return { student };
   }
+
+  // async rateASession(
+  //   body: StudentRatingDto,
+  //   sessionID: string,
+  //   userId: string,
+  // ) {
+  //   try {
+
+  //     const user = await this.prisma.user.findUnique({
+  //       where: { id: userId },
+  //       select: { type: true },
+  //     });
+
+  //     if (!user || user.type !== 'student') {
+  //       throw new BadRequestException(
+  //         'Unauthorized: Only students can rate sessions',
+  //       );
+  //     }
+
+  //     const bookSession = await this.prisma.book_Session.findFirst({
+  //       where: { user_id: userId, create_session_id: sessionID },
+  //       select: {
+  //         create_session_id: true,
+  //       },
+  //     });
+
+  //     if (!bookSession || !bookSession.create_session_id) {
+  //       return { message: 'You have not booked this session' };
+  //     }
+
+  //     let bookSessionId = bookSession.create_session_id;
+
+  //     const validSession = await this.prisma.book_Session.findFirst({
+  //       where: { create_session_id: sessionID },
+  //     });
+
+  //     if (!validSession) {
+  //       return {
+  //         message: 'The session does not exist or is invalid for rating',
+  //       };
+  //     }
+
+  //     const existingRating = await this.prisma.rate_Session.findFirst({
+  //       where: {
+  //         user_id: userId,
+  //         book_session_id: sessionID,
+  //       },
+  //     });
+
+  //     if (existingRating) {
+  //       return { message: 'You have already rated this session' };
+  //     }
+
+  //     const review = await this.prisma.rate_Session.create({
+  //       data: {
+  //         user_id: userId,
+  //         rating: body.rating,
+  //         comment: body.comment,
+  //         book_session_id: sessionID,
+  //       },
+  //     });
+
+  //     return { message: 'Session rated successfully', bookSession, review };
+  //   } catch (error) {
+  //     console.error('Error in rateASession service:', error);
+  //     throw new Error(`Service error: ${error.message || error}`);
+  //   }
+  // }
 }

@@ -9,13 +9,18 @@ import {
   Req,
   Res,
   UploadedFile,
+  UploadedFiles,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { memoryStorage } from 'multer';
-import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  FileFieldsInterceptor,
+  FileInterceptor,
+  FilesInterceptor,
+} from '@nestjs/platform-express';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -32,26 +37,48 @@ import { PrismaService } from 'src/prisma/prisma.service';
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService , private prisma : PrismaService) {}
+  constructor(
+    private authService: AuthService,
+    private prisma: PrismaService,
+  ) {}
 
   // Create user start
   @ApiOperation({ summary: 'Register a user' })
   @UseInterceptors(
-    FileInterceptor('avatar', {
-      storage: memoryStorage(),
-      limits: {
-        fileSize: 5 * 1024 * 1024,
+    FileFieldsInterceptor(
+      [
+        { name: 'avatar', maxCount: 1 },
+        { name: 'certifications', maxCount: 3 },
+      ],
+      {
+        storage: memoryStorage(),
+        limits: { fileSize: 5 * 1024 * 1024 },
       },
-    }),
+    ),
   )
   @Post('register')
   async create(
     @Body() data: CreateUserDto,
-    @UploadedFile() avatar?: Express.Multer.File,
+
+    @UploadedFiles()
+    files: {
+      avatar?: Express.Multer.File[];
+      certifications?: Express.Multer.File[];
+    },
   ) {
+    console.log('data', data);
     try {
+      const avatar = files?.avatar?.[0];
+      const certifications = files?.certifications;
+
+      console.log('certifications', certifications);
       if (avatar) {
         data.avatar = avatar.path;
+      }
+      if (certifications && certifications.length > 0) {
+        data.certifications = certifications
+          .map((file) => file.path)
+          .toString();
       }
 
       const { first_name, last_name, email, password, type } = data;
@@ -89,7 +116,11 @@ export class AuthController {
         );
       }
 
-      const user = await this.authService.createUser(data, avatar);
+      const user = await this.authService.createUser(
+        data,
+        avatar,
+        certifications,
+      );
 
       return {
         message: 'User registered successfully',
@@ -101,8 +132,6 @@ export class AuthController {
       };
     }
   }
-
-
 
   @ApiOperation({ summary: 'Login user' })
   @Post('login')
@@ -124,7 +153,6 @@ export class AuthController {
       );
     }
   }
-
 
   @ApiOperation({ summary: 'Get user details' })
   @ApiBearerAuth()
@@ -425,10 +453,8 @@ export class AuthController {
     }
   }
 
-
-
   // need to fix
-@ApiOperation({ summary: 'Change email address' })
+  @ApiOperation({ summary: 'Change email address' })
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Post('change-email')
@@ -528,13 +554,10 @@ export class AuthController {
   }
   // --------- end 2FA ---------
 
-  
   // LinkedIn login
   @Get('linkedin')
   @UseGuards(LinkedInAuthGuard)
-  async linkedinAuth() {
- 
-  }
+  async linkedinAuth() {}
 
   // LinkedIn callback
   @Get('linkedin/redirect')
@@ -543,9 +566,8 @@ export class AuthController {
     const { user, loginResponse } = req.user;
 
     if (user.email.includes('@example.com')) {
-      
       return res.redirect(
-        `/complete-profile?user_id=${user.id}&access_token=${loginResponse.authorization.access_token}`
+        `/complete-profile?user_id=${user.id}&access_token=${loginResponse.authorization.access_token}`,
       );
     }
 
@@ -560,8 +582,4 @@ export class AuthController {
       },
     });
   }
-
-  
-
-
-}    
+}

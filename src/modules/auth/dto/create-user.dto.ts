@@ -105,6 +105,11 @@ export class CreateUserDto {
   avatar?: string;
 
   @ValidateIf(isTeacher)
+  @IsOptional()
+  @ApiProperty({ required: false })
+  certifications?: string;
+
+  @ValidateIf(isTeacher)
   @IsBoolean()
   @IsNotEmpty()
   @ApiProperty({ required: false })

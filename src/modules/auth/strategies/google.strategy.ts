@@ -27,8 +27,6 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   ): Promise<any> {
     const { id, name, emails, photos } = profile;
 
-    console.log(accessToken, refreshToken, profile);
-
     let user = await this.prisma.user.findUnique({
       where: {
         googleId: id,

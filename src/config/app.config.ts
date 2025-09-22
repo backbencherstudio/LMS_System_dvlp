@@ -94,6 +94,7 @@ export default () => ({
     // chat
     attachment: '/attachment',
     team: '/team',
+    certificate: '/certificate',
   },
 
   defaultUser: {

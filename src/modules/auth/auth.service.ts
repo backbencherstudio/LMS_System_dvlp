@@ -31,23 +31,38 @@ export class AuthService {
     private prisma: PrismaService,
     private mailService: MailService,
     @InjectRedis() private readonly redis: Redis,
-  ) { }
+  ) {}
 
-  async createUser(data: CreateUserDto, avatar?: Express.Multer.File) {
-
+  async createUser(
+    data: CreateUserDto,
+    avatar?: Express.Multer.File,
+    certifications?: Express.Multer.File[],
+  ) {
     const hashedPassword = await bcrypt.hash(data.password, 10);
 
     if (avatar) {
       const fileName = `${StringHelper.randomString()}${avatar?.originalname}`;
       await SojebStorage.put(
-        appConfig().storageUrl.avatar + fileName,
+        appConfig().storageUrl.avatar + '/' + fileName,
         avatar?.buffer,
       );
 
       data.avatar = fileName;
-    }
-    else {
+    } else {
       data.avatar = 'null';
+    }
+
+    let certificationFiles: string[] = [];
+    if (certifications && certifications.length > 0) {
+      for (const file of certifications) {
+        const certFileName = `${StringHelper.randomString()}_${file.originalname}`;
+        await SojebStorage.put(
+          appConfig().storageUrl.certificate + '/' + certFileName,
+          file.buffer,
+        );
+
+        certificationFiles.push(certFileName);
+      }
     }
     const userData = {
       first_name: data.first_name,
@@ -68,6 +83,9 @@ export class AuthService {
       city: data.city,
       about_me: data.about_me,
       name: `${data.first_name} ${data.last_name}`,
+      certifications: data.certifications
+        ? certificationFiles.toString()
+        : null,
     };
 
     if (data.type === 'student') {
@@ -347,9 +365,7 @@ export class AuthService {
       }
       if (type === 'teacher') {
         if (updateUserDto.grade_level) {
-          throw new Error(
-            'only students can update this field',
-          );
+          throw new Error('only students can update this field');
         }
 
         if (updateUserDto.highest_education_level) {
@@ -383,12 +399,10 @@ export class AuthService {
           image?.buffer,
         );
 
-        data.avatar = fileName;   
+        data.avatar = fileName;
         const fullImageUrl = `https://localhost:4010/${appConfig().storageUrl.avatar}${fileName}`;
-          console.log('Image URL:', fullImageUrl);
+        console.log('Image URL:', fullImageUrl);
       }
-
-      
 
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
@@ -405,7 +419,6 @@ export class AuthService {
         return {
           success: true,
           message: 'User updated successfully',
-
         };
       } else {
         return {
@@ -417,7 +430,6 @@ export class AuthService {
       return {
         success: false,
         message: error.message,
-
       };
     }
   }
@@ -892,7 +904,6 @@ export class AuthService {
     }
   }
 
-
   //need to fix
   async changeEmail({
     user_id,
@@ -948,7 +959,6 @@ export class AuthService {
       };
     }
   }
-
 
   // --------- 2FA ---------
   async generate2FASecret(user_id: string) {
@@ -1026,85 +1036,83 @@ export class AuthService {
     }
   }
 
-
   // --------- end 2FA ---------
 
-    // google log in using passport.js
-    async googleLogin({ email, userId }: { email: string; userId: string }) {
-      try {
-        const payload = { email: email, sub: userId };
+  // google log in using passport.js
+  async googleLogin({ email, userId }: { email: string; userId: string }) {
+    try {
+      const payload = { email: email, sub: userId };
 
-        const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
-        const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+      const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
+      const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
 
-        const user = await UserRepository.getUserDetails(userId);
+      const user = await UserRepository.getUserDetails(userId);
 
-        await this.redis.set(
-          `refresh_token:${user.id}`,
-          refreshToken,
-          'EX',
-          60 * 60 * 24 * 7, // 7 days expiration
-        );
+      await this.redis.set(
+        `refresh_token:${user.id}`,
+        refreshToken,
+        'EX',
+        60 * 60 * 24 * 7, // 7 days expiration
+      );
 
-        // Return response with tokens
-        return {
-          // success: true,
-          message: 'Logged in successfully',
-          authorization: {
-            type: 'bearer',
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          },
-          type: user.type,
-        };
-      } catch (error) {
-        return {
-          success: false,
-          message: error.message,
-        };
-      }
+      // Return response with tokens
+      return {
+        // success: true,
+        message: 'Logged in successfully',
+        authorization: {
+          type: 'bearer',
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        },
+        type: user.type,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
     }
+  }
 
+  // linkedin log in using passport.js
+  async authenticateLinkedInUser({
+    email,
+    userId,
+  }: {
+    email: string;
+    userId: string;
+  }) {
+    try {
+      const payload = { email: email, sub: userId };
 
+      const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
+      const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
 
-    // linkedin log in using passport.js
-    async authenticateLinkedInUser({ email, userId }: { email: string; userId: string }) {
-      try {
-      
-        const payload = { email: email, sub: userId }; 
-        
-        const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
-        const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+      const user = await UserRepository.getUserDetails(userId);
 
-      
-        const user = await UserRepository.getUserDetails(userId);
+      await this.redis.set(
+        `refresh_token:${user.id}`,
+        refreshToken,
+        'EX',
+        60 * 60 * 24 * 7, // 7 days expiration
+      );
 
-
-        await this.redis.set(
-          `refresh_token:${user.id}`,
-          refreshToken,
-          'EX',
-          60 * 60 * 24 * 7, // 7 days expiration
-        );
-
-        // Return response with JWT tokens
-        return {
-          success: true, 
-          message: 'Logged in successfully via LinkedIn',
-          authorization: {
-            type: 'bearer',
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          },
-          type: user.type,  
-        };
-      } catch (error) {
-        return {
-          success: false,
-          message: error.message, 
-        };
-      }
+      // Return response with JWT tokens
+      return {
+        success: true,
+        message: 'Logged in successfully via LinkedIn',
+        authorization: {
+          type: 'bearer',
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        },
+        type: user.type,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
     }
-
- 
+  }
 }

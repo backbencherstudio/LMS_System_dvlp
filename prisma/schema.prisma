@@ -513,6 +513,8 @@ model Book_Session {
   deleted_at                DateTime?
   username                  String?
   subject                   String?
+  payment_status            String?              @default("pending")
+  transaction_id            String?
   user_id                   String?
   user                      User?                @relation(fields: [user_id], references: [id])
   // teacher_id       String?

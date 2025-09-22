@@ -66,19 +66,15 @@ export class AuthController {
       certifications?: Express.Multer.File[];
     },
   ) {
-    console.log('data', data);
     try {
       const avatar = files?.avatar?.[0];
       const certifications = files?.certifications;
 
-      console.log('certifications', certifications);
       if (avatar) {
         data.avatar = avatar.path;
       }
       if (certifications && certifications.length > 0) {
-        data.certifications = certifications
-          .map((file) => file.path)
-          .toString();
+        data.certifications = certifications.map((file) => file.path);
       }
 
       const { first_name, last_name, email, password, type } = data;

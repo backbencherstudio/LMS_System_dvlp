@@ -83,15 +83,13 @@ export class AuthService {
       city: data.city,
       about_me: data.about_me,
       name: `${data.first_name} ${data.last_name}`,
-      certifications: data.certifications
-        ? certificationFiles.toString()
-        : null,
+      certifications: data.certifications ? certificationFiles : [],
     };
 
     if (data.type === 'student') {
       if (!data.grade_level) {
         throw new HttpException(
-          'Grade level is required for students',
+          'required field is missing',
           HttpStatus.BAD_REQUEST,
         );
       }
@@ -122,6 +120,11 @@ export class AuthService {
             'you do do not have permission to update this field',
             HttpStatus.BAD_REQUEST,
           );
+        case data.certifications && data.certifications.length > 0:
+          throw new HttpException(
+            'you do do not have permission to update this field',
+            HttpStatus.BAD_REQUEST,
+          );
         default:
           break;
       }
@@ -136,37 +139,37 @@ export class AuthService {
       }
       if (!data.highest_education_level) {
         throw new HttpException(
-          'Highest education level is required for teachers',
+          'required field is missing',
           HttpStatus.BAD_REQUEST,
         );
       }
       if (!data.teching_experience) {
         throw new HttpException(
-          'Teaching experience is required for teachers',
+          'required field is missing',
           HttpStatus.BAD_REQUEST,
         );
       }
       if (!data.subjects_taught || data.subjects_taught.length === 0) {
         throw new HttpException(
-          'At least one subject is required for teachers',
+          'required field is missing',
           HttpStatus.BAD_REQUEST,
         );
       }
       if (data.hourly_rate === undefined || data.hourly_rate <= 0) {
         throw new HttpException(
-          'Hourly rate is required and must be greater than 0 for teachers',
+          'required field is missing',
           HttpStatus.BAD_REQUEST,
         );
       }
       if (data.is_agreed_terms !== true) {
         throw new HttpException(
-          'You must agree to the terms to register as a teacher',
+          'required field is missing',
           HttpStatus.BAD_REQUEST,
         );
       }
       if (data.is_agree_application_process !== true) {
         throw new HttpException(
-          'You must agree to the application process to register as a teacher',
+          'required field is missing',
           HttpStatus.BAD_REQUEST,
         );
       }
@@ -196,7 +199,10 @@ export class AuthService {
         });
       }
     } catch (error) {
-      console.error('Failed to create Stripe customer:', error);
+      return {
+        success: false,
+        message: 'User created but failed to create billing account',
+      };
     }
 
     try {
@@ -212,7 +218,10 @@ export class AuthService {
         type: user.type,
       });
     } catch (error) {
-      console.error('Failed to send verification email:', error);
+      return {
+        success: false,
+        message: 'User created but failed to send verification email',
+      };
     }
 
     return user;
@@ -227,7 +236,6 @@ export class AuthService {
       throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
 
     const payload = { email: user.email, sub: user.id, type: user.type };
-    console.log('Payload:', payload.type);
 
     const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
     const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
@@ -401,7 +409,6 @@ export class AuthService {
 
         data.avatar = fileName;
         const fullImageUrl = `https://localhost:4010/${appConfig().storageUrl.avatar}${fileName}`;
-        console.log('Image URL:', fullImageUrl);
       }
 
       const user = await this.prisma.user.findUnique({

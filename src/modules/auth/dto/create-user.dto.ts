@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
   IsNotEmpty,
   IsString,
@@ -77,6 +78,15 @@ export class CreateUserDto {
     example: ['Mathematics', 'Science'],
     required: false,
   })
+  @Transform(({ value }) => {
+    if (Array.isArray(value)) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      return value.split(',').map((item) => item.trim());
+    }
+    return [];
+  })
   subjects_taught?: string[];
 
   @ValidateIf(isTeacher)
@@ -107,18 +117,20 @@ export class CreateUserDto {
   @ValidateIf(isTeacher)
   @IsOptional()
   @ApiProperty({ required: false })
-  certifications?: string;
+  certifications?: string[];
 
   @ValidateIf(isTeacher)
   @IsBoolean()
   @IsNotEmpty()
   @ApiProperty({ required: false })
+  @Transform(({ value }) => value === 'true' || value === true)
   is_agreed_terms?: boolean;
 
   @ValidateIf(isTeacher)
   @IsBoolean()
   @IsNotEmpty()
   @ApiProperty({ required: false })
+  @Transform(({ value }) => value === 'true' || value === true)
   is_agree_application_process?: boolean;
 
   // Google OAuth

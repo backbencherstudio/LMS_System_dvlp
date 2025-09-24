@@ -85,6 +85,16 @@ export class TeacherService {
   async getAllSessionsForOneTeacher(userId: string) {
     return this.prismaService.create_Session.findMany({
       where: { user_id: userId },
+      select: {
+        id: true,
+        user_id: true,
+        subject: true,
+        session_charge: true,
+        mode: true,
+        slots_available: true,
+        available_slots_time_and_date: true,
+
+      }
     });
   }
   //getting all sessions
@@ -132,6 +142,7 @@ export class TeacherService {
         Create_Session: {
           select: {
             subject: true,
+            user_id: true,
             session_charge: true,
             mode: true,
             available_slots_time_and_date: true,
@@ -168,6 +179,7 @@ export class TeacherService {
     return {
       teacherIds: teacherIds.map(({ first_name, last_name, avatar, about_me, country, city, Create_Session }) => ({
         username: `${first_name} ${last_name}`,
+        userid: Create_Session.length > 0 ? Create_Session[0]?.user_id : null, // Updated line
         avatar,
         about_me,
         country,

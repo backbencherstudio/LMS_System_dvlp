@@ -27,8 +27,8 @@ export class TeacherController {
                 return this.teacherService.findAll();
         }
 
-        @UseGuards(JwtAuthGuard)
-        @Get('all-booked-sessions')
+
+        @Get('all-booked-sessions/:id')
         findAllBookedSessions(
                 @Req() req: any
         ) {
@@ -51,11 +51,13 @@ export class TeacherController {
                 return this.teacherService.getAllTeachers();
         }
 
-        @UseGuards(JwtAuthGuard)
-        @Get('my-sessions')
-        mySessions(@Req() req: any) {
-                const userId = req.user.userId;
-                return this.teacherService.getAllSessionsForOneTeacher(userId);
+
+        @Get('my-sessions/:id')
+        mySessions(
+                @Param('id') id: string,
+        ) {
+
+                return this.teacherService.getAllSessionsForOneTeacher(id);
         }
 
         @UseGuards(JwtAuthGuard)

@@ -51,14 +51,24 @@ export class TeacherController {
                 return this.teacherService.getAllTeachers();
         }
 
-
-        @Get('my-sessions/:id')
+        @UseGuards(JwtAuthGuard)
+        @Get('my-sessions')
         mySessions(
-                @Param('id') id: string,
+                @Req() req: any
         ) {
-
+                const id = req.user.userId;
                 return this.teacherService.getAllSessionsForOneTeacher(id);
         }
+
+ 
+        @Get('my-sessions/:id')
+        mySessionsForStudents(
+                @Param('id') id: string
+        ) {        
+                return this.teacherService.getAllSessionsForOneTeacher(id);
+        }
+
+
 
         @UseGuards(JwtAuthGuard)
         @Get('my-ended-sessions')

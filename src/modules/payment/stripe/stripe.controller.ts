@@ -70,7 +70,7 @@ export class StripeController {
         throw new HttpException('No unpaid session found', HttpStatus.BAD_REQUEST);
       }
 
-      const amount = Number(session.create_session?.session_charge);
+      const amount = Number(session.create_session?.session_charge || body.amount);
       if (isNaN(amount) || amount <= 0) {
         throw new HttpException('Invalid session charge', HttpStatus.BAD_REQUEST);
       }

@@ -139,8 +139,19 @@ export class StudentsService {
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { first_name: true, last_name: true, avatar: true, type: true },
+      select: { id: true, first_name: true, last_name: true, avatar: true, type: true },
     });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (userId !== user.id) {
+      return { message: "Unauthorized access to sessions" };
+    }
+
+
+
     if (user?.type !== 'student') {
       throw new BadRequestException(
         'Only students can access their booked sessions',
@@ -152,7 +163,7 @@ export class StudentsService {
 
     const formattedBookings = bookings.map((booking) => {
       return {
-        bookingId: booking.id,
+        bookingId: booking.id || 'N/A',
         studentUsername: booking.username,
         sessionDate: booking.session_date
           ? new Date(booking.session_date).toISOString()
@@ -161,17 +172,31 @@ export class StudentsService {
         isCancelled: booking.is_cancelled === 1 ? true : false,
         isCompleted: booking.is_completed === 1 ? true : false,
         status: booking.status || 'N/A',
-        sessionDetails: {
-          sessionId: booking.create_session.id,
-          teacherId: booking.create_session.user_id,
-          teacherName: teacherName.trim() || 'N/A',
-          avatar: avatar,
-          sessionType: booking.create_session.session_type,
-          subject: booking.create_session.subject,
-          charge: booking.create_session.session_charge,
-          mode: booking.create_session.mode,
-          joinLink: booking.create_session.join_link ?? 'N/A',
-        },
+        // sessionDetails: {
+        //   sessionId: booking.create_session.id || 'N/A',
+        //   teacherId: booking.create_session.user_id,
+        //   teacherName: teacherName.trim() || 'N/A',
+        //   avatar: avatar,
+        //   sessionType: booking.create_session.session_type,
+        //   subject: booking.create_session.subject,
+        //   charge: booking.create_session.session_charge,
+        //   mode: booking.create_session.mode,
+        //   joinLink: booking.create_session.join_link ?? 'N/A',
+        // },
+        sessionDetails: booking.create_session
+          ? {
+            sessionId: booking.create_session.id || 'N/A',
+            teacherId: booking.create_session.user_id,
+            teacherName: teacherName.trim() || 'N/A',
+            avatar: avatar,
+            sessionType: booking.create_session.session_type,
+            subject: booking.create_session.subject,
+            charge: booking.create_session.session_charge,
+            mode: booking.create_session.mode,
+            joinLink: booking.create_session.join_link ?? 'N/A',
+          }
+          : "sessionDetails not available",
+
         rescheduleDetails:
           Array.isArray(booking.Reschedule_Session) &&
             booking.Reschedule_Session.length > 0
@@ -193,7 +218,7 @@ export class StudentsService {
                 ? new Date(
                   booking.Reschedule_Session[0].rescheduled_date,
                 ).toISOString()
-                : 'N/A',
+                : 'rescheduleDetails not available',
             }
             : null,
       };
@@ -207,17 +232,16 @@ export class StudentsService {
     const completedSessions = await this.prisma.book_Session.findMany({
       where: {
         user_id: userId,
-        is_joined: 1, // The student has joined the session
-        is_completed: 1, // The session is marked as completed
+        is_joined: 1,
+        is_completed: 1,
       },
       select: {
         id: true,
         username: true,
-        session_date: true || null,
+        session_date: true,
         is_completed: true,
-        session_period: true || null,
+        session_period: true,
         create_session: {
-          // Directly select related create_session details
           select: {
             id: true,
             user_id: true,
@@ -228,6 +252,14 @@ export class StudentsService {
             join_link: true,
           },
         },
+        Rate_Session: {
+          select: {
+            id: true,
+            rating: true,
+            comment: true,
+            user_id: true,
+          },
+        },
       },
     });
 
@@ -236,19 +268,19 @@ export class StudentsService {
       select: { first_name: true, last_name: true, avatar: true },
     });
 
-    const teacherName = `${user?.first_name ?? ''} ${user?.last_name ?? ''}`;
+    const teacherName = `${user?.first_name ?? ''} ${user?.last_name ?? ''}`.trim();
     const avatar = user?.avatar ?? null;
 
     const formattedCompletedSessions = completedSessions.map((session) => {
-      const createSession = session.create_session
-        ? session.create_session
-        : null;
+      const createSession = session.create_session ?? null;
+      const rating = session.Rate_Session?.length > 0 ? session.Rate_Session[0].rating : 'Not rated yet';
 
       const sessionDetails = createSession
         ? {
           sessionId: createSession.id,
-          teacherName: teacherName.trim() || 'N/A',
+          teacherName: teacherName || 'N/A',
           avatar: avatar,
+          sessionRate: rating,
           sessionType: createSession.session_type,
           subject: createSession.subject,
           charge: createSession.session_charge,
@@ -256,7 +288,9 @@ export class StudentsService {
           joinLink: createSession.join_link ?? 'N/A',
           sessionPeriod: session.session_period || '60 mins',
         }
-        : {};
+        : {
+          sessionRate: rating,
+        };
 
       return {
         sessionId: session.id,
@@ -415,7 +449,6 @@ export class StudentsService {
       throw new Error(`Service error: ${error.message || error}`);
     }
   }
-  //get all students
   async getAllStudents() {
     const students = await this.prisma.user.findMany({
       where: { type: 'student' },
@@ -433,7 +466,6 @@ export class StudentsService {
     });
     return { students };
   }
-  //get a student by id
   async getAStudentById(id: string) {
     const student = await this.prisma.user.findUnique({
       where: { id, type: 'student' },
@@ -454,7 +486,6 @@ export class StudentsService {
     }
     return { student };
   }
-
   async rateASession(
     body: StudentRatingDto,
     bookSessionID: string,
@@ -467,7 +498,7 @@ export class StudentsService {
       });
 
       if (!user || user.type !== 'student') {
-        return {message:" Unauthorized: Only students can rate sessions "};
+        return { message: " Unauthorized: Only students can rate sessions " };
       }
 
       const bookSession = await this.prisma.book_Session.findFirst({

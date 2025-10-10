@@ -93,6 +93,8 @@ export class TeacherService {
         mode: true,
         slots_available: true,
         available_slots_time_and_date: true,
+        join_link: true,
+        session_type: true,
 
       }
     });

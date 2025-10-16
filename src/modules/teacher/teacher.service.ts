@@ -474,6 +474,7 @@ export class TeacherService {
         city: true,
         about_me: true,
         created_at: true,
+        certifications: true,
       },
     });
     if (!teacher) {

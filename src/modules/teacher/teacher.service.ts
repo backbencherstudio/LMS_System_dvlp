@@ -6,6 +6,8 @@ import { count } from 'console';
 import { Mode } from '@prisma/client';
 import { DateHelper } from 'src/common/helper/date.helper';
 import { acceptReqDto } from './dto/accept-req.dto';
+import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
+import appConfig from 'src/config/app.config';
 
 @Injectable()
 export class TeacherService {
@@ -460,10 +462,12 @@ export class TeacherService {
       },
     });
   }
-  //get a teacher by id
   async getATeacherById(teacherId: string) {
-    const teacher = await this.prismaService.user.findUnique({
-      where: { id: teacherId, type: 'teacher' },
+    const teacher = await this.prismaService.user.findFirst({
+      where: {
+        id: teacherId,
+        type: 'teacher',
+      },
       select: {
         id: true,
         first_name: true,
@@ -477,10 +481,34 @@ export class TeacherService {
         certifications: true,
       },
     });
+
     if (!teacher) {
-      return { message: 'Teacher not found or user is not a teacher' };
+      return {
+        success: false,
+        message: 'Teacher not found or user is not a teacher',
+        data: null,
+      };
     }
-    return teacher;
+
+
+    const basePublicUrl = `http://localhost:4012/public/storage/`;
+
+    if (teacher.avatar) {
+      teacher['avatar_url'] = `${basePublicUrl}avatar/${teacher.avatar}`;
+    }
+
+    if (Array.isArray(teacher.certifications) && teacher.certifications.length > 0) {
+      teacher['certifications_urls'] = teacher.certifications.map(cert =>
+        `${basePublicUrl}certificate/${cert}`
+      );
+    }
+
+    return {
+      success: true,
+      message: 'Teacher fetched successfully',
+      data: teacher,
+    };
   }
+
 
 }

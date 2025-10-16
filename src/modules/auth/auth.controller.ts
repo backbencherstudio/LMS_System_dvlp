@@ -238,40 +238,117 @@ export class AuthController {
   }
 
   // update user
+  // @ApiOperation({ summary: 'Update user' })
+  // @ApiBearerAuth()
+  // @UseGuards(JwtAuthGuard)
+  // @Patch('update')
+  // @UseInterceptors(
+  //   FileFieldsInterceptor(
+  //     [
+  //       { name: 'avatar', maxCount: 1 },
+  //       { name: 'certifications', maxCount: 3 },
+  //     ],
+  //     {
+  //       storage: memoryStorage(),
+  //       limits: { fileSize: 5 * 1024 * 1024 },
+  //     },
+  //   ),
+  //   // FileInterceptor('avatar', {
+  //   // storage: diskStorage({
+  //   //   destination:
+  //   //     appConfig().storageUrl.rootUrl + appConfig().storageUrl.avatar,
+  //   //   filename: (req, file, cb) => {
+  //   //     const randomName = Array(32)
+  //   //       .fill(null)
+  //   //       .map(() => Math.round(Math.random() * 16).toString(16))
+  //   //       .join('');
+  //   //     return cb(null, `${randomName}${file.originalname}`);
+  //   //   },
+  //   // }),
+  //   // storage: memoryStorage(),
+  //   // }),
+  // )
+  // async updateUser(
+  //   @Req() req: Request,
+  //   @Body() data: UpdateUserDto,
+  //   @UploadedFile() image: Express.Multer.File,
+  //   certifications: Express.Multer.File[],
+  // ) {
+  //   try {
+  //     const user_id = req.user?.userId;
+  //     const user_type = req.user?.type;
+
+  //     const response = await this.authService.updateUser(
+  //       user_id,
+  //       user_type,
+  //       data,
+  //       image,
+  //       certifications,
+  //     );
+  //     return response;
+  //   } catch (error) {
+  //     return {
+  //       success: false,
+  //       message: 'Failed to update user',
+  //     };
+  //   }
+  // }
+
+  // update user
   @ApiOperation({ summary: 'Update user' })
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Patch('update')
   @UseInterceptors(
-    FileInterceptor('avatar', {
-      // storage: diskStorage({
-      //   destination:
-      //     appConfig().storageUrl.rootUrl + appConfig().storageUrl.avatar,
-      //   filename: (req, file, cb) => {
-      //     const randomName = Array(32)
-      //       .fill(null)
-      //       .map(() => Math.round(Math.random() * 16).toString(16))
-      //       .join('');
-      //     return cb(null, `${randomName}${file.originalname}`);
-      //   },
-      // }),
-      storage: memoryStorage(),
-    }),
+    FileFieldsInterceptor(
+      [
+        { name: 'avatar', maxCount: 1 },
+        { name: 'certifications', maxCount: 3 },
+      ],
+      {
+        storage: memoryStorage(),
+        limits: { fileSize: 5 * 1024 * 1024 },
+      },
+    ),
   )
+  // FileInterceptor('avatar', {
+  // storage: diskStorage({
+  //   destination:
+  //     appConfig().storageUrl.rootUrl + appConfig().storageUrl.avatar,
+  //   filename: (req, file, cb) => {
+  //     const randomName = Array(32)
+  //       .fill(null)
+  //       .map(() => Math.round(Math.random() * 16).toString(16))
+  //       .join('');
+  //     return cb(null, `${randomName}${file.originalname}`);
+  //   },
+  // }),
+  // storage: memoryStorage(),
+  // }),
   async updateUser(
     @Req() req: Request,
     @Body() data: UpdateUserDto,
-    @UploadedFile() image: Express.Multer.File,
+    @UploadedFiles()
+    files: {
+      avatar?: Express.Multer.File;
+      certifications?: Express.Multer.File[];
+    },
   ) {
     try {
       const user_id = req.user?.userId;
       const user_type = req.user?.type;
+
+      const image = files?.avatar ? files.avatar[0] : undefined;
+      const certifications = files?.certifications
+        ? files.certifications
+        : undefined;
 
       const response = await this.authService.updateUser(
         user_id,
         user_type,
         data,
         image,
+        certifications,
       );
       return response;
     } catch (error) {

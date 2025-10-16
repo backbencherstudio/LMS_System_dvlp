@@ -272,6 +272,7 @@ export class AuthService {
           gender: true,
           date_of_birth: true,
           created_at: true,
+          certifications: true,
         },
       });
 
@@ -280,6 +281,10 @@ export class AuthService {
           success: false,
           message: 'User not found',
         };
+      }
+
+      if (user.type === 'student') {
+        user.certifications = [];
       }
 
       if (user.avatar) {
@@ -311,6 +316,7 @@ export class AuthService {
     type: string,
     updateUserDto: UpdateUserDto,
     image?: Express.Multer.File,
+    certifications?: Express.Multer.File[],
   ) {
     try {
       const data: any = {};
@@ -357,6 +363,9 @@ export class AuthService {
         if (updateUserDto.grade_level) {
           data.grade_level = updateUserDto.grade_level;
         }
+        if (certifications && certifications.length > 0) {
+          throw new Error('This is only for teachers');
+        }
 
         switch (true) {
           case !!updateUserDto.subjects_taught:
@@ -390,6 +399,34 @@ export class AuthService {
         }
       }
 
+      // ✅ Certifications only teacher can update
+      if (type === 'teacher' && certifications) {
+        const oldCerts = await this.prisma.user.findFirst({
+          where: { id: userId },
+          select: { certifications: true },
+        });
+
+        if (oldCerts) {
+          for (const oldCert of oldCerts.certifications) {
+            await SojebStorage.delete(
+              appConfig().storageUrl.certificate + '/' + oldCert,
+            );
+          }
+        }
+
+        const newCertFiles: string[] = [];
+        for (const file of certifications) {
+          const certFileName = `${StringHelper.randomString()}_${file.originalname}`;
+          await SojebStorage.put(
+            appConfig().storageUrl.certificate + '/' + certFileName,
+            file.buffer,
+          );
+          newCertFiles.push(certFileName);
+        }
+
+        data.certifications = newCertFiles;
+      }
+
       if (image) {
         const oldImage = await this.prisma.user.findFirst({
           where: { id: userId },
@@ -397,18 +434,17 @@ export class AuthService {
         });
         if (oldImage.avatar) {
           await SojebStorage.delete(
-            appConfig().storageUrl.avatar + oldImage.avatar,
+            appConfig().storageUrl.avatar + '/' + oldImage.avatar,
           );
         }
 
         const fileName = `${StringHelper.randomString()}${image?.originalname}`;
         await SojebStorage.put(
-          appConfig().storageUrl.avatar + fileName,
+          appConfig().storageUrl.avatar + '/' + fileName,
           image?.buffer,
         );
 
         data.avatar = fileName;
-        const fullImageUrl = `https://localhost:4010/${appConfig().storageUrl.avatar}${fileName}`;
       }
 
       const user = await this.prisma.user.findUnique({
@@ -440,6 +476,7 @@ export class AuthService {
       };
     }
   }
+
   async validateUser(
     email: string,
     pass: string,
@@ -1062,6 +1099,27 @@ export class AuthService {
         60 * 60 * 24 * 7, // 7 days expiration
       );
 
+      // If user does not have a billing_id, create a Stripe customer account
+      try {
+        const stripeCustomer = await StripePayment.createCustomer({
+          user_id: user.id,
+          email: user.email,
+          name: `${user.first_name} ${user.last_name}`,
+        });
+
+        if (stripeCustomer) {
+          await this.prisma.user.update({
+            where: { id: user.id },
+            data: { billing_id: stripeCustomer.id },
+          });
+        }
+      } catch (error) {
+        return {
+          success: false,
+          message: 'User created but failed to create billing account',
+        };
+      }
+
       // Return response with tokens
       return {
         // success: true,
@@ -1103,6 +1161,27 @@ export class AuthService {
         'EX',
         60 * 60 * 24 * 7, // 7 days expiration
       );
+
+      // create stripe customer account id
+      try {
+        const stripeCustomer = await StripePayment.createCustomer({
+          user_id: user.id,
+          email: user.email,
+          name: `${user.first_name} ${user.last_name}`,
+        });
+
+        if (stripeCustomer) {
+          await this.prisma.user.update({
+            where: { id: user.id },
+            data: { billing_id: stripeCustomer.id },
+          });
+        }
+      } catch (error) {
+        return {
+          success: false,
+          message: 'User created but failed to create billing account',
+        };
+      }
 
       // Return response with JWT tokens
       return {

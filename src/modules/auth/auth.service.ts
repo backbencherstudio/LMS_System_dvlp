@@ -223,7 +223,6 @@ export class AuthService {
         message: 'User created but failed to send verification email',
       };
     }
-
     return user;
   }
   async login({ email, password }) {
@@ -231,6 +230,12 @@ export class AuthService {
     if (!user)
       throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
 
+    if (!user.email_verified_at) {
+      return {
+        success: false,
+        message: 'Your email is not verified. Please check your inbox.',
+      };
+    }
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid)
       throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
@@ -1201,7 +1206,4 @@ export class AuthService {
       };
     }
   }
-
-
-
 }

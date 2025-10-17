@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Patch,
   Post,
+  Query,
   Req,
   Res,
   UploadedFile,
@@ -119,7 +120,9 @@ export class AuthController {
       );
 
       return {
-        message: 'User registered successfully',
+        success: true,
+        message:
+          'We have sent a verification link to your email. Please verify.',
       };
     } catch (error) {
       return {
@@ -135,17 +138,23 @@ export class AuthController {
     try {
       const response = await this.authService.login(data);
 
-      res.cookie('refresh_token', response.authorization.refresh_token, {
-        httpOnly: true,
-        secure: true,
-        maxAge: 1000 * 60 * 60 * 24 * 7,
-      });
+      if (response.authorization && response.authorization.refresh_token) {
+        res.cookie('refresh_token', response.authorization.refresh_token, {
+          httpOnly: true,
+          secure: true,
+          maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+        });
+      }
 
-      res.json(response);
+      res.status(HttpStatus.OK).json(response);
     } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
       throw new HttpException(
-        error.message || 'Login failed',
-        HttpStatus.UNAUTHORIZED,
+        'Login failed due to an internal error',
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
@@ -380,8 +389,8 @@ export class AuthController {
 
   // verify email to verify the email
   @ApiOperation({ summary: 'Verify email' })
-  @Post('verify-email')
-  async verifyEmail(@Body() data: VerifyEmailDto) {
+  @Get('verify-email')
+  async verifyEmail(@Query() data: VerifyEmailDto) {
     try {
       const email = data.email;
       const token = data.token;

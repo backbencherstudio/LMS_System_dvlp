@@ -19,9 +19,23 @@ export class TeacherService {
   // session creating
   async create(createSessionDto: CreateSessionDto) {
     const userExists = await this.prismaService.user.findUnique({
-      where: { id: createSessionDto.user_id },
-      select: { type: true },
+      where: { id: createSessionDto.user_id, type: 'teacher' },
+      select: { type: true, is_accepted: true },
     });
+
+    if (userExists.type !== 'teacher') {
+      return {
+        success: false,
+        message: 'Only users with TEACHER role can create sessions.',
+      };
+    }
+
+    if (userExists.is_accepted === "pending") {
+      return {
+        success: true,
+        message: 'Your application is still pending. You cannot create a session until your application is accepted.',
+      }
+    }
 
     if (!userExists) {
       return {
@@ -491,7 +505,7 @@ export class TeacherService {
     }
 
 
-    const basePublicUrl = `http://localhost:4012/public/storage/`;
+    const basePublicUrl = `http://localhost:${process.env.PORT || 4012}/public/storage/`;
 
     if (teacher.avatar) {
       teacher['avatar_url'] = `${basePublicUrl}avatar/${teacher.avatar}`;

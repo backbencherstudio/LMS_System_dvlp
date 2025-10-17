@@ -28,7 +28,6 @@ export class HelpAndSupportService {
       message: 'Help and support message created successfully.',
     };
   }
-
   async getAllSupport() {
     const allMessages = await this.prisma.helpAndSupport.findMany();
     return {
@@ -37,7 +36,6 @@ export class HelpAndSupportService {
       data: allMessages,
     };
   }
-
   async getOneSupport(id: string) {
     const message = await this.prisma.helpAndSupport.findUnique({
       where: { id },
@@ -54,4 +52,35 @@ export class HelpAndSupportService {
       data: message,
     };
   }
-}
+  async toggleSupportStatus(id: string) {
+    const message = await this.prisma.helpAndSupport.findUnique({
+      where: { id },
+      select:{
+        status: true
+      }
+    });
+
+    if(message.status === "unsolved"){
+      await this.prisma.helpAndSupport.update({
+        where: { id },
+        data: { status: "solved" },
+      }); 
+
+    } else{
+      await this.prisma.helpAndSupport.update({
+        where: { id },
+        data: { status: "unsolved" },
+      }); 
+    }
+
+    return {
+      success: true,
+      message: 'Help and support message status updated successfully.',
+      data: message,
+    };
+  }  
+
+  // report section 
+
+  }
+

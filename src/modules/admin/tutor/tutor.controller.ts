@@ -6,7 +6,12 @@ import { AuthGuard } from '@nestjs/passport';
 import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
 import { RestrictUserDto } from './dto/restrict-user.dto';
 import { AuthService } from 'src/modules/auth/auth.service';
+import { RolesGuard } from 'src/common/guard/role/roles.guard';
+import { Role } from 'src/common/guard/role/role.enum';
+import { Roles } from 'src/common/guard/role/roles.decorator';
 
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.ADMIN)
 @Controller('tutor')
 export class TutorController {
   constructor(private readonly tutorService: TutorService,
@@ -14,7 +19,7 @@ export class TutorController {
   ) { }
 
 
-  @UseGuards(JwtAuthGuard)
+
   @Get('all')
   findAll(@Req() req: any) {
     const type = req.user.type
@@ -36,8 +41,8 @@ export class TutorController {
       };
     }
   }
-  
-  @UseGuards(JwtAuthGuard)
+
+
   @Get('restricted-users')
   getRestrictedUsers(@Req() req: any) {
     const type = req.user.type;
@@ -58,5 +63,28 @@ export class TutorController {
       };
     }
   }
+
+  @Get('/applications')
+  getTutorApplications() {
+    return this.tutorService.getAllTutorApplications();
+  }
+
+  @Get('/application/:id')
+  getTutorApplicationById(@Param('id') id: string) {
+    return this.tutorService.getOneTutorApplication(id);
+  }
+
+  @Get('/accepted-tutors')
+  getallacceptedTutors() {
+    return this.tutorService.getAllAcceptedTutors();
+  }
+
+  @Patch('/acceptApp/:id')
+  acceptTutorApplication(@Param('id') id: string) {
+    return this.tutorService.acceptTutorApplication(id);
+  }
+
+
+
 
 }

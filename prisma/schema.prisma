@@ -83,7 +83,7 @@ model User {
   is_agreed_terms              Int?                @default(0)
   is_verified                  Int?                @default(0)
   is_agree_application_process Int?                @default(0)
-  is_accepted                  Int?                @default(0)
+  is_accepted                  String?             @default("pending")
   is_restricted                Int?                @default(0)
   restriction_reason           String?             @db.Text
   restriction_period           Restriction_period? @default(Three_Months)

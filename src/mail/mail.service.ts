@@ -78,4 +78,34 @@ export class MailService {
       console.log(error);
     }
   }
+
+  async sendTutorApplicationStatusEmail(params: {
+    email: string;
+    name: string;
+    status: string;
+  }) {
+    try {
+      const subject =
+        params.status === 'accepted'
+          ? 'Tutor Application Accepted'
+          : 'Tutor Application Rejected';
+
+      const template =
+        params.status === 'accepted'
+          ? 'tutor_application_status_mail.ejs'
+          : 'tutor_application_status_mail.ejs';
+
+      // add to queue
+      await this.queue.add('sendTutorApplicationStatusEmail', {
+        to: params.email,
+        subject: subject,
+        template: template,
+        context: {
+          name: params.name,
+        },
+      });
+    } catch (error) {
+      console.log(error);
+    }
+  }
 }

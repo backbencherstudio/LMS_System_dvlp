@@ -68,6 +68,12 @@ export class HelpAndSupportController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Patch('toggle-support-status/:id')
+  toggleSupportStatus(@Param('id') id: string) {
+    return this.helpAndSupportService.toggleSupportStatus(id);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get('one-support/:id')
   getOneSupport(@Param('id') id: string, @Req() req: any) {
     const type = req.user.type;

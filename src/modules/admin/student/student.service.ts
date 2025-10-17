@@ -4,6 +4,7 @@ import { UpdateStudentDto } from './dto/update-student.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Restriction_period } from '@prisma/client';
 
+
 @Injectable()
 export class StudentService {
   constructor(private prisma: PrismaService) { }
@@ -69,6 +70,32 @@ export class StudentService {
       data: studentsInfo,
     };
   }
+  async getOneStudent(id: string) {
+    try {
+      const existStudent = await this.prisma.user.findUnique({
+        where: { id: id, type: 'student' },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        }
+      });
+
+      return{
+        success: true,
+        data: existStudent
+      }
+
+
+    } catch (error) {
+      console.log(error);
+      return{
+        success: false,
+        message: "Error fetching student",
+        error: error.message
+      }
+    }
+  }
   async restrictedUserAccess(
     type: string,
     restrictedId: string,
@@ -127,6 +154,7 @@ export class StudentService {
         restriction_reason: true,
         restriction_period: true,
         is_restricted: true,
+        type: true,
       },
     });
 

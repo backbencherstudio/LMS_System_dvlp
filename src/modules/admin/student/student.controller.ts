@@ -15,12 +15,18 @@ import { UpdateStudentDto } from './dto/update-student.dto';
 import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
 import { RestrictedUserDto } from './dto/restricted-user.dto';
 import { stat } from 'fs';
+import { Role } from 'src/common/guard/role/role.enum';
+import { Roles } from 'src/common/guard/role/roles.decorator';
+import { RolesGuard } from 'src/common/guard/role/roles.guard';
 
+
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.ADMIN)
 @Controller('student')
 export class StudentController {
   constructor(private readonly studentService: StudentService) { }
 
-  @UseGuards(JwtAuthGuard)
+
   @Get('book-sessions')
   findAll(@Req() req: any) {
     const type = req.user.type;
@@ -42,11 +48,10 @@ export class StudentController {
     }
   }
 
-  @UseGuards(JwtAuthGuard)
+
   @Get('restricted-users')
   getRestrictedUsers(@Req() req: any) {
     const type = req.user.type;
-    console.log('type from token', type);
     try {
       if (type !== 'admin') {
         return {
@@ -66,7 +71,14 @@ export class StudentController {
     }
   }
 
-  @UseGuards(JwtAuthGuard)
+  @Get('student/:id')
+  getOneStudent(@Param('id') id: string) {
+    return this.studentService.getOneStudent(id);
+
+  }
+
+
+
   @Patch('restricted-user/:restrictedId')
   restrictedUserAccess(
     @Param('restrictedId') restrictedId: string,
@@ -97,7 +109,7 @@ export class StudentController {
     }
   }
 
-  @UseGuards(JwtAuthGuard)
+
   @Patch('unrestrict-user/:userId')
   unrestrictUser(@Param('userId') userId: string, @Req() req: any) {
     const type = req.user.type;
@@ -120,7 +132,7 @@ export class StudentController {
 
   }
 
-  @UseGuards(JwtAuthGuard)
+
   @Delete(':id')
   remove(@Param('id') userId: string, @Req() req: any) {
     const type = req.user.type;

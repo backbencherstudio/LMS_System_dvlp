@@ -31,7 +31,7 @@ export class AuthService {
     private prisma: PrismaService,
     private mailService: MailService,
     @InjectRedis() private readonly redis: Redis,
-  ) {}
+  ) { }
 
   async createUser(
     data: CreateUserDto,
@@ -230,12 +230,31 @@ export class AuthService {
     if (!user)
       throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
 
-    if (!user.email_verified_at) {
+    
+    if(user.type !=='admin'){
+         if (user.email_verified_at === null) {
       return {
         success: false,
-        message: 'Your email is not verified. Please check your inbox.',
+        message: 'Your email and user account are not verified. Please check your inbox for the email verification link.',
       };
     }
+
+    if (user.is_verified === 0) {
+      return {
+        success: false,
+        message: 'Your email and user account are not verified. Please check your inbox for the email verification link.',
+      };
+    }
+
+    if (user.is_restricted === 1) {
+      return {
+        success: false,
+        message: 'Your account is restricted. Please contact support.',
+      };
+    }
+    }
+
+
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid)
       throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
@@ -292,11 +311,25 @@ export class AuthService {
         user.certifications = [];
       }
 
+      const basePublicUrl = `http://localhost:${process.env.PORT || 5000}/public/storage/`;
+
+      if (user.type === 'teacher') {
+        if (Array.isArray(user.certifications) && user.certifications.length > 0) {
+          user['certifications_urls'] = user.certifications.map(cert =>
+            `${basePublicUrl}certificate/${cert}`
+          );
+        }
+      }
+
       if (user.avatar) {
         user['avatar_url'] = SojebStorage.url(
           appConfig().storageUrl.avatar + user.avatar,
         );
       }
+
+
+      //delete user.certifications;
+      delete user.certifications;
 
       if (user) {
         return {
@@ -814,6 +847,7 @@ export class AuthService {
             },
             data: {
               email_verified_at: new Date(Date.now()),
+              is_verified: 1,
             },
           });
 

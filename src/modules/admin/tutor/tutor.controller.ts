@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, Put } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Req,
+  Put,
+} from '@nestjs/common';
 import { TutorService } from './tutor.service';
 import { CreateTutorDto } from './dto/create-tutor.dto';
 import { UpdateTutorDto } from './dto/update-tutor.dto';
@@ -14,23 +25,18 @@ import { Roles } from 'src/common/guard/role/roles.decorator';
 @Roles(Role.ADMIN)
 @Controller('tutor')
 export class TutorController {
-  constructor(private readonly tutorService: TutorService,
-
-  ) { }
-
-
+  constructor(private readonly tutorService: TutorService) {}
 
   @Get('all')
   findAll(@Req() req: any) {
-    const type = req.user.type
+    const type = req.user.type;
     try {
       if (type !== 'admin') {
         return {
           success: false,
           message: 'unauthorized',
         };
-      }
-      else {
+      } else {
         return this.tutorService.getAllTutors(type);
       }
     } catch (error) {
@@ -41,7 +47,6 @@ export class TutorController {
       };
     }
   }
-
 
   @Get('restricted-users')
   getRestrictedUsers(@Req() req: any) {
@@ -84,7 +89,8 @@ export class TutorController {
     return this.tutorService.acceptTutorApplication(id);
   }
 
-
-
-
+  @Patch('/rejectApp/:id')
+  rejectTutorApplication(@Param('id') id: string) {
+    return this.tutorService.rejectTutorApplication(id);
+  }
 }

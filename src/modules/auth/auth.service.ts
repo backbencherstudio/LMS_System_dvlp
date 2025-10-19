@@ -23,6 +23,8 @@ import { StripePayment } from '../../common/lib/Payment/stripe/StripePayment';
 import { StringHelper } from '../../common/helper/string.helper';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
+import { NotificationRepository } from 'src/common/repository/notification/notification.repository';
+import { MessageGateway } from '../chat/message/message.gateway';
 
 @Injectable()
 export class AuthService {
@@ -30,8 +32,9 @@ export class AuthService {
     private jwtService: JwtService,
     private prisma: PrismaService,
     private mailService: MailService,
+    private readonly messageGatway: MessageGateway,
     @InjectRedis() private readonly redis: Redis,
-  ) { }
+  ) {}
 
   async createUser(
     data: CreateUserDto,
@@ -225,35 +228,36 @@ export class AuthService {
     }
     return user;
   }
+
   async login({ email, password }) {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user)
       throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
 
-    
-    if(user.type !=='admin'){
-         if (user.email_verified_at === null) {
-      return {
-        success: false,
-        message: 'Your email and user account are not verified. Please check your inbox for the email verification link.',
-      };
-    }
+    if (user.type !== 'admin') {
+      if (user.email_verified_at === null) {
+        return {
+          success: false,
+          message:
+            'Your email and user account are not verified. Please check your inbox for the email verification link.',
+        };
+      }
 
-    if (user.is_verified === 0) {
-      return {
-        success: false,
-        message: 'Your email and user account are not verified. Please check your inbox for the email verification link.',
-      };
-    }
+      if (user.is_verified === 0) {
+        return {
+          success: false,
+          message:
+            'Your email and user account are not verified. Please check your inbox for the email verification link.',
+        };
+      }
 
-    if (user.is_restricted === 1) {
-      return {
-        success: false,
-        message: 'Your account is restricted. Please contact support.',
-      };
+      if (user.is_restricted === 1) {
+        return {
+          success: false,
+          message: 'Your account is restricted. Please contact support.',
+        };
+      }
     }
-    }
-
 
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid)
@@ -271,6 +275,70 @@ export class AuthService {
       60 * 60 * 24 * 7, // 7 days
     );
 
+    //  login notification
+    try {
+      // ধাপ ১: সকল অ্যাডমিনকে নোটিফিকেশন পাঠানো
+      const admins = await this.prisma.user.findMany({
+        where: { type: 'admin' },
+      });
+
+      if (admins.length > 0) {
+        const adminNotificationText = `${user.name || user.email} has just logged in.`;
+
+        const eventForAdmin = await this.prisma.notificationEvent.create({
+          data: {
+            type: 'user_login',
+            text: adminNotificationText,
+          },
+        });
+
+        // সকল অ্যাডমিনের জন্য নোটিফিকেশন তৈরি এবং সকেট ইভেন্ট পাঠান
+        for (const admin of admins) {
+          const notificationForAdmin = await this.prisma.notification.create({
+            data: {
+              sender_id: user.id,
+              receiver_id: admin.id,
+              notification_event_id: eventForAdmin.id,
+              entity_id: user.id,
+            },
+            include: {
+              sender: true,
+              notification_event: true,
+            },
+          });
+
+          // notification for a admin
+
+          this.messageGatway.server
+            .to(admin.id)
+            .emit('new_notification', notificationForAdmin);
+        }
+      }
+
+      // Notification for logged in user
+      const userNotificationText =
+        'Welcome back! You have successfully logged in.';
+
+      const notificationForUser =
+        await NotificationRepository.createNotification({
+          receiver_id: user.id,
+          text: userNotificationText,
+          type: 'login_success',
+          entity_id: user.id,
+        });
+
+      this.messageGatway.server
+        .to(user.id)
+        .emit('new_notification', notificationForUser);
+    } catch (error) {
+      console.error('Failed to send login notification:', error);
+    }
+
+    this.messageGatway.server.emit('userLoggedIn', {
+      user_id: user.id,
+      status: 'online',
+    });
+
     return {
       message: 'Logged in successfully',
       authorization: {
@@ -279,6 +347,7 @@ export class AuthService {
       },
     };
   }
+
   async me(userId: string) {
     try {
       const user = await this.prisma.user.findFirst({
@@ -314,9 +383,12 @@ export class AuthService {
       const basePublicUrl = `http://localhost:${process.env.PORT || 5000}/public/storage/`;
 
       if (user.type === 'teacher') {
-        if (Array.isArray(user.certifications) && user.certifications.length > 0) {
-          user['certifications_urls'] = user.certifications.map(cert =>
-            `${basePublicUrl}certificate/${cert}`
+        if (
+          Array.isArray(user.certifications) &&
+          user.certifications.length > 0
+        ) {
+          user['certifications_urls'] = user.certifications.map(
+            (cert) => `${basePublicUrl}certificate/${cert}`,
           );
         }
       }
@@ -326,7 +398,6 @@ export class AuthService {
           appConfig().storageUrl.avatar + user.avatar,
         );
       }
-
 
       //delete user.certifications;
       delete user.certifications;

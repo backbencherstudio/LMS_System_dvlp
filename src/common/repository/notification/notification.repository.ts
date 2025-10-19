@@ -23,6 +23,7 @@ export class NotificationRepository {
     receiver_id?: string;
     text?: string;
     type?:
+      | 'login_success'
       | 'message'
       | 'comment'
       | 'review'
@@ -32,39 +33,53 @@ export class NotificationRepository {
       | 'blog';
     entity_id?: string;
   }) {
-    const notificationEventData = {};
-    if (type) {
-      notificationEventData['type'] = type;
-    }
-    if (text) {
-      notificationEventData['text'] = text;
-    }
-    const notificationEvent = await prisma.notificationEvent.create({
-      data: {
+    // Step 1: Find or create the notification event to avoid duplicates.
+    let notificationEvent = await prisma.notificationEvent.findFirst({
+      where: {
         type: type,
         text: text,
-        ...notificationEventData,
       },
     });
 
-    const notificationData = {};
+    // If the event doesn't exist, create a new one.
+    if (!notificationEvent) {
+      notificationEvent = await prisma.notificationEvent.create({
+        data: {
+          type: type,
+          text: text,
+        },
+      });
+    }
+
+    // Step 2: Create the notification and link it to the event.
+    const notificationData: {
+      sender_id?: string;
+      receiver_id?: string;
+      entity_id?: string;
+      notification_event_id: string;
+    } = {
+      notification_event_id: notificationEvent.id,
+    };
+
     if (sender_id) {
-      notificationData['sender_id'] = sender_id;
+      notificationData.sender_id = sender_id;
     }
     if (receiver_id) {
-      notificationData['receiver_id'] = receiver_id;
+      notificationData.receiver_id = receiver_id;
     }
     if (entity_id) {
-      notificationData['entity_id'] = entity_id;
+      notificationData.entity_id = entity_id;
     }
 
-    const notification = await prisma.notification.create({
-      data: {
-        notification_event_id: notificationEvent.id,
-        ...notificationData,
+    const newNotification = await prisma.notification.create({
+      data: notificationData,
+      include: {
+        sender: true, // Include sender's user data
+        receiver: true, // Include receiver's user data
+        notification_event: true, // Include the event details
       },
     });
 
-    return notification;
+    return newNotification;
   }
 }

@@ -66,12 +66,23 @@ export class StudentsController {
     @Req() req: any,
     @Body() createStudentDto: CreateStudentDto,
   ) {
-    const userId = req.user.userId;
-    return this.studentsService.bookASession(
-      sessionId,
-      userId,
-      createStudentDto,
-    );
+    try {
+      const userId = req.user.userId;
+      return this.studentsService.bookASession(
+        sessionId,
+        userId,
+        createStudentDto,
+      );
+    } catch (error) {
+      console.error('Error in bookSession controller:', error);
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      throw new Error(`Unexpected error: ${error.message || error}`);
+    }
   }
 
   // cancel session baki ache

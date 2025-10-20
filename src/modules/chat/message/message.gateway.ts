@@ -93,6 +93,8 @@ export class MessageGateway
     }
   }
 
+  // async handleConnection(client: Socket, ...args: any[]) {}
+
   async handleDisconnect(client: Socket) {
     const userId = [...this.clients.entries()].find(
       ([, socketId]) => socketId === client.id,

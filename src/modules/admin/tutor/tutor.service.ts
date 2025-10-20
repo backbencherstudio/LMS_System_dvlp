@@ -5,11 +5,14 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { Restriction_period } from '@prisma/client';
 import { RestrictUserDto } from './dto/restrict-user.dto';
 import { MailService } from 'src/mail/mail.service';
+import { NotificationRepository } from 'src/common/repository/notification/notification.repository';
+import { MessageGateway } from 'src/modules/chat/message/message.gateway';
 @Injectable()
 export class TutorService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly mailService: MailService,
+    private readonly messageGateway: MessageGateway,
   ) {}
 
   async getAllTutors(type: string) {
@@ -170,13 +173,28 @@ export class TutorService {
         data: { is_accepted: 'accepted' },
       });
 
+      // notification
+      const appceptTeacherNotificationPlaload: any = {
+        sender_id: '',
+        receiver_id: tutor.id,
+        text: 'Your tutor application has been accepted.',
+        type: 'teacher_application_accepted',
+      };
+      NotificationRepository.createNotification(
+        appceptTeacherNotificationPlaload,
+      );
+
+      this.messageGateway.server.emit(
+        'notification',
+        appceptTeacherNotificationPlaload,
+      );
+
       // mail
       await this.mailService.sendTutorApplicationStatusEmail({
         email: tutor.email,
         name: tutor.name,
         status: 'accepted',
       });
-
       return {
         success: true,
         message: 'Tutor application accepted',
@@ -201,12 +219,28 @@ export class TutorService {
         data: { is_accepted: 'rejected' },
       });
 
+      // notification
+      const appceptTeacherNotificationPlaload: any = {
+        sender_id: '',
+        receiver_id: tutor.id,
+        text: 'Your tutor application has been rejected.',
+        type: 'teacher_application_accepted',
+      };
+      NotificationRepository.createNotification(
+        appceptTeacherNotificationPlaload,
+      );
+
+      this.messageGateway.server.emit(
+        'notification',
+        appceptTeacherNotificationPlaload,
+      );
       // mail
       await this.mailService.sendTutorApplicationStatusEmail({
         email: tutor.email,
         name: tutor.name,
         status: 'rejected',
       });
+
       return {
         success: true,
         message: 'Tutor application rejected',

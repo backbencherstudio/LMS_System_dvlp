@@ -23,7 +23,6 @@ export class NotificationRepository {
     receiver_id?: string;
     text?: string;
     type?:
-      | 'login_success'
       | 'message'
       | 'comment'
       | 'review'

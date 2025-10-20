@@ -208,6 +208,31 @@ export class AuthService {
       };
     }
 
+    // Notify admins when a new teacher registers
+    if (data.type === 'teacher') {
+      const admins = await this.prisma.user.findMany({
+        where: { type: 'admin' },
+        select: { id: true },
+      });
+
+      if (admins && admins.length > 0) {
+        for (const admin of admins) {
+          const teacherRegisterNotificationPayload: any = {
+            sender_id: '',
+            receiver_id: admin.id,
+            text: `A new tutor has registered and is awaiting for approval. Name: ${user.first_name} ${user.last_name}, Email: ${user.email}`,
+            type: 'teacher_register',
+          };
+          NotificationRepository.createNotification(
+            teacherRegisterNotificationPayload,
+          );
+          this.messageGatway.server.emit(
+            'notification',
+            teacherRegisterNotificationPayload,
+          );
+        }
+      }
+    }
     try {
       const token = await UcodeRepository.createVerificationToken({
         userId: user.id,
@@ -275,69 +300,16 @@ export class AuthService {
       60 * 60 * 24 * 7, // 7 days
     );
 
-    //  login notification
-    try {
-      // ধাপ ১: সকল অ্যাডমিনকে নোটিফিকেশন পাঠানো
-      const admins = await this.prisma.user.findMany({
-        where: { type: 'admin' },
-      });
+    // send login success notification
+    const notificationPayload: any = {
+      sender_id: '',
+      receiver_id: user.id,
+      text: 'You have successfully logged in to your account.',
+      type: 'login_success',
+    };
 
-      if (admins.length > 0) {
-        const adminNotificationText = `${user.name || user.email} has just logged in.`;
-
-        const eventForAdmin = await this.prisma.notificationEvent.create({
-          data: {
-            type: 'user_login',
-            text: adminNotificationText,
-          },
-        });
-
-        // সকল অ্যাডমিনের জন্য নোটিফিকেশন তৈরি এবং সকেট ইভেন্ট পাঠান
-        for (const admin of admins) {
-          const notificationForAdmin = await this.prisma.notification.create({
-            data: {
-              sender_id: user.id,
-              receiver_id: admin.id,
-              notification_event_id: eventForAdmin.id,
-              entity_id: user.id,
-            },
-            include: {
-              sender: true,
-              notification_event: true,
-            },
-          });
-
-          // notification for a admin
-
-          this.messageGatway.server
-            .to(admin.id)
-            .emit('new_notification', notificationForAdmin);
-        }
-      }
-
-      // Notification for logged in user
-      const userNotificationText =
-        'Welcome back! You have successfully logged in.';
-
-      const notificationForUser =
-        await NotificationRepository.createNotification({
-          receiver_id: user.id,
-          text: userNotificationText,
-          type: 'login_success',
-          entity_id: user.id,
-        });
-
-      this.messageGatway.server
-        .to(user.id)
-        .emit('new_notification', notificationForUser);
-    } catch (error) {
-      console.error('Failed to send login notification:', error);
-    }
-
-    this.messageGatway.server.emit('userLoggedIn', {
-      user_id: user.id,
-      status: 'online',
-    });
+    NotificationRepository.createNotification(notificationPayload);
+    this.messageGatway.server.emit('notification', notificationPayload);
 
     return {
       message: 'Logged in successfully',

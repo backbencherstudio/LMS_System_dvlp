@@ -3,10 +3,15 @@ import { CreateContactDto } from './dto/create-contact.dto';
 import { UpdateContactDto } from './dto/update-contact.dto';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { DateHelper } from '../../../common/helper/date.helper';
+import { NotificationRepository } from 'src/common/repository/notification/notification.repository';
+import { MessageGateway } from 'src/modules/chat/message/message.gateway';
 
 @Injectable()
 export class ContactService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly messageGateway: MessageGateway,
+  ) {}
 
   async create(createContactDto: CreateContactDto) {
     try {
@@ -33,6 +38,29 @@ export class ContactService {
           updated_at: DateHelper.now(),
         },
       });
+
+      const admins = await this.prisma.user.findMany({
+        where: { type: 'admin' },
+      });
+
+      if (admins && admins.length > 0) {
+        for (const admin of admins) {
+          const adminNotificationPayload: any = {
+            sender_id: '',
+            receiver_id: admin.id,
+            text: `A new contact message has been received. from ${createContactDto.first_name} ${createContactDto.last_name} email: ${createContactDto.email}`,
+            type: 'contact_message',
+          };
+
+          NotificationRepository.createNotification(adminNotificationPayload);
+
+          this.messageGateway.server.emit(
+            'notification',
+            adminNotificationPayload,
+          );
+        }
+      }
+
       return {
         success: true,
         message: 'Contact created successfully',

@@ -17,6 +17,9 @@ import { ReqDto } from './dto/req.dto';
 import { Body } from '@nestjs/common';
 import { StudentRatingDto } from './dto/student-rating.dto';
 import { Role } from '../../common/guard/role/role.enum';
+import { NotificationRepository } from 'src/common/repository/notification/notification.repository';
+import { MessageGateway } from 'src/modules/chat/message/message.gateway';
+import { Session } from '../admin/sessions/entities/session.entity';
 
 @Injectable()
 export class StudentsService {
@@ -24,8 +27,9 @@ export class StudentsService {
     private jwtService: JwtService,
     private prisma: PrismaService,
     private mailService: MailService,
+    private readonly messageGateway: MessageGateway,
     @InjectRedis() private readonly redis: Redis,
-  ) { }
+  ) {}
 
   create(createStudentDto: CreateStudentDto) {
     return 'This action adds a new student';
@@ -95,6 +99,57 @@ export class StudentsService {
       },
     });
 
+    // Send  booking confirmation student notification
+    const bookNotificationPayload: any = {
+      sender_id: '',
+      receiver_id: userId,
+      title: 'New Session Booking',
+      message: `A new session has been booked for ${session.subject} on ${slotDate.toISOString()}`,
+      type: 'session_booking',
+    };
+
+    NotificationRepository.createNotification(bookNotificationPayload);
+
+    this.messageGateway.server.emit('notification', bookNotificationPayload);
+
+    // send booking confirmation teacher notification
+    const bookTeacherNotificationPayload: any = {
+      sender_id: '',
+      receiver_id: session.user_id,
+      title: 'New Session Booking',
+      message: `A new session has been booked for ${session.subject} by  ${createStudentDto.name} on ${slotDate.toISOString()}`,
+      type: 'session_booking',
+    };
+
+    NotificationRepository.createNotification(bookTeacherNotificationPayload);
+
+    this.messageGateway.server.emit(
+      'notification',
+      bookTeacherNotificationPayload,
+    );
+
+    // send booking confirmation admin notification
+    const admins = await this.prisma.user.findMany({
+      where: { type: 'admin' },
+    });
+
+    if (admins && admins.length > 0) {
+      for (const admin of admins) {
+        const bookAdminNotificationPayload: any = {
+          sender_id: '',
+          receiver_id: admin.id,
+          title: 'New Session Booking',
+          message: `A new session has been booked for ${session.subject} by  ${createStudentDto.name} on ${slotDate.toISOString()}`,
+          type: 'session_booking',
+        };
+        NotificationRepository.createNotification(bookAdminNotificationPayload);
+        this.messageGateway.server.emit(
+          'notification',
+          bookAdminNotificationPayload,
+        );
+      }
+    }
+
     return {
       message: 'Session booked successfully',
       bookedSession,
@@ -139,7 +194,13 @@ export class StudentsService {
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, first_name: true, last_name: true, avatar: true, type: true },
+      select: {
+        id: true,
+        first_name: true,
+        last_name: true,
+        avatar: true,
+        type: true,
+      },
     });
 
     if (!user) {
@@ -147,10 +208,8 @@ export class StudentsService {
     }
 
     if (userId !== user.id) {
-      return { message: "Unauthorized access to sessions" };
+      return { message: 'Unauthorized access to sessions' };
     }
-
-
 
     if (user?.type !== 'student') {
       throw new BadRequestException(
@@ -185,41 +244,41 @@ export class StudentsService {
         // },
         sessionDetails: booking.create_session
           ? {
-            sessionId: booking.create_session.id || 'N/A',
-            teacherId: booking.create_session.user_id,
-            teacherName: teacherName.trim() || 'N/A',
-            avatar: avatar,
-            sessionType: booking.create_session.session_type,
-            subject: booking.create_session.subject,
-            charge: booking.create_session.session_charge,
-            mode: booking.create_session.mode,
-            joinLink: booking.create_session.join_link ?? 'N/A',
-          }
-          : "sessionDetails not available",
+              sessionId: booking.create_session.id || 'N/A',
+              teacherId: booking.create_session.user_id,
+              teacherName: teacherName.trim() || 'N/A',
+              avatar: avatar,
+              sessionType: booking.create_session.session_type,
+              subject: booking.create_session.subject,
+              charge: booking.create_session.session_charge,
+              mode: booking.create_session.mode,
+              joinLink: booking.create_session.join_link ?? 'N/A',
+            }
+          : 'sessionDetails not available',
 
         rescheduleDetails:
           Array.isArray(booking.Reschedule_Session) &&
-            booking.Reschedule_Session.length > 0
+          booking.Reschedule_Session.length > 0
             ? {
-              requestId: booking.Reschedule_Session[0].id,
-              subject: booking.Reschedule_Session[0].subject,
-              reason: booking.Reschedule_Session[0].reason,
-              isAccepted:
-                booking.Reschedule_Session[0].is_accepted === 1
-                  ? true
-                  : false,
-              isRejected:
-                booking.Reschedule_Session[0].is_rejected === 1
-                  ? true
-                  : false,
-              rejectReason:
-                booking.Reschedule_Session[0].reject_reason || 'N/A',
-              rescheduledDate: booking.Reschedule_Session[0].rescheduled_date
-                ? new Date(
-                  booking.Reschedule_Session[0].rescheduled_date,
-                ).toISOString()
-                : 'rescheduleDetails not available',
-            }
+                requestId: booking.Reschedule_Session[0].id,
+                subject: booking.Reschedule_Session[0].subject,
+                reason: booking.Reschedule_Session[0].reason,
+                isAccepted:
+                  booking.Reschedule_Session[0].is_accepted === 1
+                    ? true
+                    : false,
+                isRejected:
+                  booking.Reschedule_Session[0].is_rejected === 1
+                    ? true
+                    : false,
+                rejectReason:
+                  booking.Reschedule_Session[0].reject_reason || 'N/A',
+                rescheduledDate: booking.Reschedule_Session[0].rescheduled_date
+                  ? new Date(
+                      booking.Reschedule_Session[0].rescheduled_date,
+                    ).toISOString()
+                  : 'rescheduleDetails not available',
+              }
             : null,
       };
     });
@@ -268,29 +327,33 @@ export class StudentsService {
       select: { first_name: true, last_name: true, avatar: true },
     });
 
-    const teacherName = `${user?.first_name ?? ''} ${user?.last_name ?? ''}`.trim();
+    const teacherName =
+      `${user?.first_name ?? ''} ${user?.last_name ?? ''}`.trim();
     const avatar = user?.avatar ?? null;
 
     const formattedCompletedSessions = completedSessions.map((session) => {
       const createSession = session.create_session ?? null;
-      const rating = session.Rate_Session?.length > 0 ? session.Rate_Session[0].rating : 'Not rated yet';
+      const rating =
+        session.Rate_Session?.length > 0
+          ? session.Rate_Session[0].rating
+          : 'Not rated yet';
 
       const sessionDetails = createSession
         ? {
-          sessionId: createSession.id,
-          teacherName: teacherName || 'N/A',
-          avatar: avatar,
-          sessionRate: rating,
-          sessionType: createSession.session_type,
-          subject: createSession.subject,
-          charge: createSession.session_charge,
-          mode: createSession.mode,
-          joinLink: createSession.join_link ?? 'N/A',
-          sessionPeriod: session.session_period || '60 mins',
-        }
+            sessionId: createSession.id,
+            teacherName: teacherName || 'N/A',
+            avatar: avatar,
+            sessionRate: rating,
+            sessionType: createSession.session_type,
+            subject: createSession.subject,
+            charge: createSession.session_charge,
+            mode: createSession.mode,
+            joinLink: createSession.join_link ?? 'N/A',
+            sessionPeriod: session.session_period || '60 mins',
+          }
         : {
-          sessionRate: rating,
-        };
+            sessionRate: rating,
+          };
 
       return {
         sessionId: session.id,
@@ -307,6 +370,7 @@ export class StudentsService {
       completedSessions: formattedCompletedSessions,
     };
   }
+
   async joinsession(userId: string, sessionId: string) {
     const session = await this.prisma.book_Session.findFirst({
       where: { id: sessionId, user_id: userId },
@@ -333,6 +397,40 @@ export class StudentsService {
         where: { id: sessionId },
         data: { is_joined: 1 },
       });
+
+      // send join session notification
+      const joinNotificationPayload: any = {
+        sender_id: '',
+        receiver_id: userId,
+        text: `You have joined the session: ${session.username}`,
+        type: 'session_joined',
+      };
+      NotificationRepository.createNotification(joinNotificationPayload);
+      this.messageGateway.server.emit('notification', joinNotificationPayload);
+
+      // teacher notification
+      const bookedSession = await this.prisma.book_Session.findUnique({
+        where: { id: sessionId },
+        select: { create_session_id: true },
+      });
+
+      const createSession = await this.prisma.create_Session.findUnique({
+        where: { id: bookedSession.create_session_id },
+        select: { subject: true, user_id: true },
+      });
+      const teacherNotificationPayload: any = {
+        sender_id: '',
+        receiver_id: createSession.user_id,
+        text: `Your session with Subject Name: ${createSession.subject} has been joined by ${session.username}`,
+        type: 'session_joined',
+      };
+      NotificationRepository.createNotification(teacherNotificationPayload);
+
+      this.messageGateway.server.emit(
+        'notification',
+        teacherNotificationPayload,
+      );
+
       return { message: 'Session joined successfully' };
     }
   }
@@ -498,7 +596,7 @@ export class StudentsService {
       });
 
       if (!user || user.type !== 'student') {
-        return { message: " Unauthorized: Only students can rate sessions " };
+        return { message: ' Unauthorized: Only students can rate sessions ' };
       }
 
       const bookSession = await this.prisma.book_Session.findFirst({
@@ -540,7 +638,4 @@ export class StudentsService {
       throw new Error(`Service error: ${error.message || error}`);
     }
   }
-
-
-
 }

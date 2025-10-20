@@ -1,13 +1,18 @@
 import { Injectable } from '@nestjs/common';
+import { NotificationRepository } from 'src/common/repository/notification/notification.repository';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { MessageGateway } from 'src/modules/chat/message/message.gateway';
 
 @Injectable()
 export class SessionsService {
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    private prisma: PrismaService,
+    private readonly messageGateway: MessageGateway,
+  ) {}
 
   async getAllSessions() {
     try {
-      const defaultDuration = "60min";
+      const defaultDuration = '60min';
 
       const sessions = await this.prisma.create_Session.findMany({
         select: {
@@ -39,10 +44,10 @@ export class SessionsService {
         status: session.status,
         session_charge: session.session_charge,
         available_slots_time_and_date: session.available_slots_time_and_date,
-        tutor_name: session.user ? session.user.name : "Unknown",
+        tutor_name: session.user ? session.user.name : 'Unknown',
         duration: defaultDuration,
         Book_Session: session.Book_Session.map((booking) => ({
-          name: booking.user ? booking.user.name : "Unknown",
+          name: booking.user ? booking.user.name : 'Unknown',
         })),
       }));
 
@@ -80,7 +85,7 @@ export class SessionsService {
         };
       }
 
-       await this.prisma.create_Session.update({
+      await this.prisma.create_Session.update({
         where: { id },
         data: {
           is_restricted: 1,
@@ -88,20 +93,31 @@ export class SessionsService {
         },
       });
 
+      // restrict session notification
+      const adminNotificationPayload: any = {
+        sender_id: '',
+        receiver_id: session.user_id,
+        text: `Your session with Subject Name: ${session.subject} has been restricted. Reason: ${reason}`,
+        type: 'session_restriction',
+      };
+
+      NotificationRepository.createNotification(adminNotificationPayload);
+
+      this.messageGateway.server.emit('notification', adminNotificationPayload);
+
       return {
         success: true,
         message: 'Session restricted successfully.',
       };
-    }
-    catch (error) { 
+    } catch (error) {
       console.error('Error restricting session:', error);
       return {
-        statusCode: 500,  
+        statusCode: 500,
         success: false,
         message: 'An error occurred while restricting the session.',
         error: error.message,
       };
-    } 
+    }
   }
   async unRestrictAsession(id: string) {
     try {
@@ -113,7 +129,7 @@ export class SessionsService {
           success: false,
           message: 'Session not found.',
         };
-      } 
+      }
       if (session.is_restricted == 0) {
         return {
           success: false,
@@ -128,16 +144,27 @@ export class SessionsService {
           restriction_reason: null,
         },
       });
+      // unrestrict session notification
+      const adminNotificationPayload: any = {
+        sender_id: '',
+        receiver_id: session.user_id,
+        text: `Your session with Subject Name: ${session.subject} has been unrestricted.`,
+        type: 'session_unrestriction',
+      };
+
+      NotificationRepository.createNotification(adminNotificationPayload);
+
+      this.messageGateway.server.emit('notification', adminNotificationPayload);
+
       return {
         success: true,
         message: 'Session unrestricted successfully.',
       };
-    }
-    catch (error) {
+    } catch (error) {
       console.error('Error unrestricting session:', error);
       return {
         statusCode: 500,
-        success: false, 
+        success: false,
         message: 'An error occurred while unrestricting the session.',
         error: error.message,
       };

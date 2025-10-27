@@ -23,7 +23,9 @@ export class ExtrasService {
       where: { id: reportedId },
     });
     if (reporter.type === reported.type) {
-      throw new Error("You cannot report a user of the same type");
+      return {
+        message: "Users of same type cannot report each other"
+      }
     }
 
     //students can rport only those teaher who have taken their sessions

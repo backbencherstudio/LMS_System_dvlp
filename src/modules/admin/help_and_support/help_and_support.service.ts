@@ -82,5 +82,22 @@ export class HelpAndSupportService {
 
   // report section 
 
+  async getAllreports(){
+    try {
+      const reports = await this.prisma.report.findMany({
+
+      });
+      return {
+        success: true,
+        data: reports
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Error fetching reports',
+      };
+    }
+  }
+
   }
 

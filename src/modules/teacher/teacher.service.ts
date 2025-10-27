@@ -8,6 +8,7 @@ import { DateHelper } from 'src/common/helper/date.helper';
 import { acceptReqDto } from './dto/accept-req.dto';
 import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
 import appConfig from 'src/config/app.config';
+import { StringHelper } from 'src/common/helper/string.helper';
 
 @Injectable()
 export class TeacherService {
@@ -522,6 +523,208 @@ export class TeacherService {
       message: 'Teacher fetched successfully',
       data: teacher,
     };
+  }
+
+
+  //uploading meterials 
+  async uploadMaterials(
+    userID: string,
+    sessionId: string,
+    files: Express.Multer.File[]
+  ) {
+    try {
+      const fileNames: string[] = [];
+      const userId = userID;
+
+      const userSessionData = await this.prismaService.user.findUnique({
+        where: { id: userId, type: 'teacher' },
+        select: {
+          Create_Session: {
+            where: { id: sessionId },
+            select: {
+              user_id: true,
+              id: true,
+            },
+          },
+        },
+      });
+
+      if (!userSessionData || userSessionData.Create_Session.length === 0 || userSessionData.Create_Session[0].user_id !== userId) {
+        return {
+          success: false,
+          message: 'Session ID or User ID mismatch. You cannot upload materials for this session.',
+        };
+      }
+
+      if (files && files.length > 0) {
+        for (const file of files) {
+          const fileName = `${StringHelper.randomString()}_${file.originalname}`;
+
+          await SojebStorage.put(
+            appConfig().storageUrl.material + '/' + fileName,
+            file.buffer
+          );
+
+          fileNames.push(fileName);
+        }
+
+        const updatedSession = await this.prismaService.create_Session.update({
+          where: { id: sessionId },
+          data: {
+            pdf_attachment: { push: fileNames },
+          },
+        });
+
+        const basePublicUrl = `http://localhost:${process.env.PORT || 4012}/public/storage/`;
+
+        if (Array.isArray(updatedSession.pdf_attachment) && updatedSession.pdf_attachment.length > 0) {
+          updatedSession['materials_urls'] = updatedSession.pdf_attachment.map(material =>
+            `${basePublicUrl}material/${material}`
+          );
+        }
+
+        return {
+          success: true,
+          message: 'Files uploaded and saved successfully',
+          fileNames,
+          materials_urls: updatedSession.pdf_attachment.map(material =>
+            `${basePublicUrl}material/${material}`
+          ),
+        };
+      } else {
+        return {
+          success: false,
+          message: 'No files uploaded',
+        };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
+
+
+  async getAllMaterialsWithSession(userId: string) {
+    const creator = await this.prismaService.user.findUnique({
+      where: { id: userId, type: "teacher" },
+      select: {
+        name: true,
+        Create_Session: {
+          select: {
+            id: true,
+            subject: true,
+            user_id: true,
+            session_type: true,
+            pdf_attachment: true,
+          }
+        },
+        Book_Sessions: {
+          select: {
+            user_id: true,
+            is_completed: true,
+            updated_at: true,
+          }
+        }
+
+      }
+
+    })
+
+
+    return {
+      creator
+    }
+  }
+
+  async getMaterialsForSession(sessionId: string) {
+    const session = await this.prismaService.create_Session.findUnique({
+      where: { id: sessionId },
+      select: {
+        pdf_attachment: true,
+      },
+    });
+    if (!session) {
+      return {
+        success: false,
+        message: 'Session not found',
+        materials_urls: [],
+      };
+    }
+    const basePublicUrl = `http://localhost:${process.env.PORT || 4012}/public/storage/`;
+
+    if (Array.isArray(session.pdf_attachment) && session.pdf_attachment.length > 0) {
+      const materials_urls = session.pdf_attachment.map(material =>
+        `${basePublicUrl}material/${material}`
+      );
+
+      return {
+        success: true,
+        message: 'Materials fetched successfully',
+        materials_urls,
+      };
+    } else {
+      return {
+        success: true,
+        message: 'No materials found for this session',
+        materials_urls: [],
+      };
+    }
+  }
+
+  async deleteMaterialFromSession(sessionId: string, materialFileName: string, userId: string) {
+    try {
+      const session = await this.prismaService.create_Session.findUnique({
+        where: { id: sessionId, user_id: userId },
+        select: {
+          pdf_attachment: true,
+        },
+      });
+
+      if (!session) {
+        return {
+          success: false,
+          message: 'Session not found',
+        };
+      }
+
+      if (!Array.isArray(session.pdf_attachment)) {
+        return {
+          success: false,
+          message: 'Invalid pdf_attachment format',
+        };
+      }
+
+      if (!session.pdf_attachment.includes(materialFileName)) {
+        return {
+          success: false,
+          message: 'Material not found in this session',
+        };
+      }
+
+      const updatedMaterials = session.pdf_attachment.filter(
+        (material) => material !== materialFileName
+      );
+
+      const updatedSession = await this.prismaService.create_Session.update({
+        where: { id: sessionId, user_id: userId },
+        data: {
+          pdf_attachment: updatedMaterials,
+        },
+      });
+
+      return {
+        success: true,
+        message: 'Material deleted successfully from session',
+      };
+    } catch (error) {
+      console.error('Error deleting material:', error);
+      return {
+        success: false,
+        message: 'An unexpected error occurred',
+      };
+    }
   }
 
 

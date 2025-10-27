@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, Put } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, Put, UseInterceptors, UploadedFiles, BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
 import { TeacherService } from './teacher.service';
 import { CreateTeacherDto } from './dto/create-teacher.dto';
 import { UpdateTeacherDto } from './dto/update-teacher.dto';
@@ -8,6 +8,7 @@ import { log } from 'console';
 import { UpdateSessionDto } from './dto/update-session-teacher.dto';
 import { acceptReqDto } from './dto/accept-req.dto';
 import { use } from 'passport';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express/multer';
 
 @Controller('teacher')
 export class TeacherController {
@@ -59,22 +60,27 @@ export class TeacherController {
                 const id = req.user.userId;
                 return this.teacherService.getAllSessionsForOneTeacher(id);
         }
-
- 
-        @Get('my-sessions/:id')
-        mySessionsForStudents(
-                @Param('id') id: string
-        ) {        
-                return this.teacherService.getAllSessionsForOneTeacher(id);
-        }
-
-
-
         @UseGuards(JwtAuthGuard)
         @Get('my-ended-sessions')
         myEndedSessions(@Req() req: any) {
                 const userId = req.user.userId;
                 return this.teacherService.getallEndedSessionsForOneTeacher(userId);
+        }
+
+        @UseGuards(JwtAuthGuard)
+        @Get('getAllMets')
+        getAllMets(
+                @Req() req: any
+        ) {
+                const userId = req.user.userId;
+                return this.teacherService.getAllMaterialsWithSession(userId)
+        }
+
+        @Get('my-sessions/:id')
+        mySessionsForStudents(
+                @Param('id') id: string
+        ) {
+                return this.teacherService.getAllSessionsForOneTeacher(id);
         }
 
         @Get('session/:id')
@@ -88,20 +94,36 @@ export class TeacherController {
                 return this.teacherService.getATeacherById(id);
         }
 
-        @UseGuards(JwtAuthGuard)
-        @Put('update-session/:id')
-        async update(@Param('id') id: string,
-                @Body() updateSessionDto: UpdateSessionDto,
-                @Req() req: any) {
-                const userId = req.user.userId;
-                return this.teacherService.update(id, updateSessionDto, userId);
+        @Get('materials/:sessionId')
+        getMaterialsForSession(@Param('sessionId') sessionId: string) {
+                return this.teacherService.getMaterialsForSession(sessionId);
         }
 
         @UseGuards(JwtAuthGuard)
-        @Delete('delete-session/:id')
-        remove(@Param('id') id: string, @Req() req: any) {
-                const userId = req.user.userId;
-                return this.teacherService.remove(id, userId);
+        @Post('upload/:sessionId')
+        @UseInterceptors(FilesInterceptor('materials'))
+        async uploadMaterials(
+                @Param('sessionId') sessionId: string,
+                @UploadedFiles() files: Express.Multer.File[],
+                @Req() req: any,
+        ) {
+                const userID = req.user.userId;
+
+                try {
+                        const result = await this.teacherService.uploadMaterials(userID, sessionId, files);
+
+                        return {
+                                success: result.success,
+                                message: result.message,
+                                fileNames: result.fileNames,
+                                materials_urls: result.materials_urls,
+                        };
+                } catch (error) {
+                        return {
+                                success: false,
+                                message: error.message,
+                        };
+                }
         }
 
         @UseGuards(JwtAuthGuard)
@@ -126,6 +148,51 @@ export class TeacherController {
                 );
                 return result;
         }
+
+
+        @UseGuards(JwtAuthGuard)
+        @Put('update-session/:id')
+        async update(@Param('id') id: string,
+                @Body() updateSessionDto: UpdateSessionDto,
+                @Req() req: any) {
+                const userId = req.user.userId;
+                return this.teacherService.update(id, updateSessionDto, userId);
+        }
+
+        @UseGuards(JwtAuthGuard)
+        @Delete('delete-session/:id')
+        remove(@Param('id') id: string, @Req() req: any) {
+                const userId = req.user.userId;
+                return this.teacherService.remove(id, userId);
+        }
+
+        @UseGuards(JwtAuthGuard)
+        @Delete(':sessionId/materials/:materialFileName')
+        async deleteMaterialFromSession(
+                @Param('sessionId') sessionId: string,
+                @Param('materialFileName') materialFileName: string,
+                @Req() req: any
+        ) {
+                const userId = req.user.userId;
+                try {
+                        const result = await this.teacherService.deleteMaterialFromSession(sessionId, materialFileName, userId);
+
+                        if (result.success) {
+                                return {
+                                        message: result.message,
+                                };
+                        } else {
+                                throw new HttpException(result.message, HttpStatus.BAD_REQUEST);
+                        }
+                } catch (error) {
+                        throw new HttpException(
+                                error?.response?.message || 'An unexpected error occurred',
+                                error?.response?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+                        );
+                }
+        }
+
+
 
 
 

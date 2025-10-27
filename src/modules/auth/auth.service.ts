@@ -23,6 +23,8 @@ import { StripePayment } from '../../common/lib/Payment/stripe/StripePayment';
 import { StringHelper } from '../../common/helper/string.helper';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
+import { NotificationRepository } from 'src/common/repository/notification/notification.repository';
+import { MessageGateway } from '../chat/message/message.gateway';
 
 @Injectable()
 export class AuthService {
@@ -30,6 +32,7 @@ export class AuthService {
     private jwtService: JwtService,
     private prisma: PrismaService,
     private mailService: MailService,
+    private messageGateway: MessageGateway,
     @InjectRedis() private readonly redis: Redis,
   ) { }
 
@@ -270,6 +273,19 @@ export class AuthService {
       'EX',
       60 * 60 * 24 * 7, // 7 days
     );
+
+        // send notification to assined user (reseller)
+    const notificationPayload: any = {
+      sender_id: "",
+      receiver_id: user.id,
+      text: 'You have been assigned to this task',
+      type: 'post',
+    }
+ 
+    NotificationRepository.createNotification(notificationPayload);
+    this.messageGateway.server.emit("notification", notificationPayload)
+    // End sending notification
+ 
 
     return {
       message: 'Logged in successfully',

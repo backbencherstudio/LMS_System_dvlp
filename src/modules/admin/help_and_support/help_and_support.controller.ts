@@ -68,6 +68,12 @@ export class HelpAndSupportController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get('all-reports')
+  getAllReports(){
+    return this.helpAndSupportService.getAllreports();
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Patch('toggle-support-status/:id')
   toggleSupportStatus(@Param('id') id: string) {
     return this.helpAndSupportService.toggleSupportStatus(id);

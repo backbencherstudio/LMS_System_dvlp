@@ -17,10 +17,11 @@ import { UpdateStudentDto } from './dto/update-student.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ReqDto } from './dto/req.dto';
 import { StudentRatingDto } from './dto/student-rating.dto';
+import { log } from 'console';
 
 @Controller('students')
 export class StudentsController {
-  constructor(private readonly studentsService: StudentsService) {}
+  constructor(private readonly studentsService: StudentsService) { }
 
   @Post()
   create(@Body() createStudentDto: CreateStudentDto) {
@@ -45,6 +46,13 @@ export class StudentsController {
   getAllCompletedSessionsForStudent(@Req() req: any) {
     const id = req.user.userId;
     return this.studentsService.getAllCompletedSessionsForStudent(id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('/sessionss')
+  findAllMaterials(@Req() req: any) {
+    const userId = req.user.userId;
+    return this.studentsService.getAllBookedSessionsMaterialsForStudent(userId);
   }
 
   @Get('/:id')
@@ -112,17 +120,20 @@ export class StudentsController {
   @UseGuards(JwtAuthGuard)
   @Post('rateASession/:sessionID')
   async rateASession(
-    @Param('booksessionID') bookSessionID: string,
+    @Param('sessionID') bookSessionID: string,
     @Req() req: any,
     @Body() body: StudentRatingDto,
   ) {
     try {
       const userId = req.user.userId;
+      console.log('bookSessionID:', bookSessionID);
+      console.log('userId:', userId);
       const response = await this.studentsService.rateASession(
         body,
         bookSessionID,
         userId,
       );
+      
       return response;
     } catch (error) {
       console.error('Error in rateASession controller:', error);

@@ -389,28 +389,38 @@ export class AuthController {
   }
 
   // verify email to verify the email
-  @ApiOperation({ summary: 'Verify email' })
- @Redirect('http://localhost:3000/verify-email', 302)
+  @ApiOperation({ summary: 'Verify email and redirect user' })
   @Get('verify-email')
-  async verifyEmail(@Query() data: VerifyEmailDto) {
+  async verifyEmail(@Query() data: VerifyEmailDto, @Res() res: Response) {
     try {
-      const email = data.email;
-      const token = data.token;
-      if (!email) {
-        throw new HttpException('Email not provided', HttpStatus.UNAUTHORIZED);
-      }
-      if (!token) {
-        throw new HttpException('Token not provided', HttpStatus.UNAUTHORIZED);
-      }
-      return await this.authService.verifyEmail({
-        email: email,
-        token: token,
+      const response = await this.authService.verifyEmail({
+        email: data.email,
+        token: data.token,
+        type: data.type,
       });
+
+      if (response.success) {
+        let redirectUrl = 'http://localhost:3000/login';
+        const userType = response.data?.user_type;
+
+        if (userType === 'teacher') {
+          redirectUrl = 'http://localhost:3000/tutor/sign-in';
+        } else if (userType === 'student') {
+          redirectUrl = 'http://localhost:3000/student/sign-in';
+        }
+
+        return res.redirect(redirectUrl);
+      } else {
+        const errorMessage = encodeURIComponent(response.message);
+        return res.redirect(
+          `http://localhost:3000/verification-failed?error=${errorMessage}`,
+        );
+      }
     } catch (error) {
-      return {
-        success: false,
-        message: 'Failed to verify email',
-      };
+      const errorMessage = encodeURIComponent('An unexpected error occurred.');
+      return res.redirect(
+        `http://localhost:3000/verification-failed?error=${errorMessage}`,
+      );
     }
   }
 

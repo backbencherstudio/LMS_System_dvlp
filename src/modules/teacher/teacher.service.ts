@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { UpdateTeacherDto } from './dto/update-teacher.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateSessionDto } from './dto/create-session-teacher.dto';
@@ -8,14 +13,16 @@ import { DateHelper } from 'src/common/helper/date.helper';
 import { acceptReqDto } from './dto/accept-req.dto';
 import { SojebStorage } from 'src/common/lib/Disk/SojebStorage';
 import appConfig from 'src/config/app.config';
+import { NotificationRepository } from 'src/common/repository/notification/notification.repository';
+import { MessageGateway } from '../chat/message/message.gateway';
 import { StringHelper } from 'src/common/helper/string.helper';
 
 @Injectable()
 export class TeacherService {
-
   constructor(
     private readonly prismaService: PrismaService,
-  ) { }
+    private readonly messageGatway: MessageGateway,
+  ) {}
 
   // session creating
   async create(createSessionDto: CreateSessionDto) {
@@ -31,11 +38,12 @@ export class TeacherService {
       };
     }
 
-    if (userExists.is_accepted === "pending") {
+    if (userExists.is_accepted === 'pending') {
       return {
         success: true,
-        message: 'Your application is still pending. You cannot create a session until your application is accepted.',
-      }
+        message:
+          'Your application is still pending. You cannot create a session until your application is accepted.',
+      };
     }
 
     if (!userExists) {
@@ -61,10 +69,12 @@ export class TeacherService {
 
     const currentDateUTC = new Date(Date.now());
 
-    const hasPastSlot = createSessionDto.available_slots_time_and_date.some((slot) => {
-      const slotDate = new Date(slot);
-      return slotDate < currentDateUTC;
-    });
+    const hasPastSlot = createSessionDto.available_slots_time_and_date.some(
+      (slot) => {
+        const slotDate = new Date(slot);
+        return slotDate < currentDateUTC;
+      },
+    );
 
     if (hasPastSlot) {
       return {
@@ -88,6 +98,40 @@ export class TeacherService {
         },
       });
 
+      // started notification
+      const admins = await this.prismaService.user.findMany({
+        where: { type: 'admin' },
+        select: { id: true },
+      });
+
+      const notificationPayload: any = {
+        sender_id: createSessionDto.user_id,
+        receiver_id: createSessionDto.user_id,
+        text: 'You have successfully created a new teaching session.',
+        type: 'session',
+      };
+
+      NotificationRepository.createNotification(notificationPayload);
+      this.messageGatway.server.emit('notification', notificationPayload);
+
+      if (admins.length > 0) {
+        for (const admin of admins) {
+          const admin_notificationPayload: any = {
+            sender_id: createSessionDto.user_id,
+            receiver_id: admin.id,
+            text: `A new session has been created by teacher with ID: ${createSessionDto.user_id} Session Name: ${session.subject}.`,
+            type: 'session',
+          };
+
+          NotificationRepository.createNotification(admin_notificationPayload);
+          this.messageGatway.server.emit(
+            'notification',
+            admin_notificationPayload,
+          );
+        }
+      }
+
+      // ended notification
       return {
         message: 'Session successfully created',
         session_type: session.session_type,
@@ -112,8 +156,7 @@ export class TeacherService {
         available_slots_time_and_date: true,
         join_link: true,
         session_type: true,
-
-      }
+      },
     });
   }
   //getting all sessions
@@ -128,7 +171,7 @@ export class TeacherService {
 
     const charges = sessions
       .map(({ session_charge }) => Number(session_charge))
-      .filter(charge => !isNaN(charge) && charge !== null);
+      .filter((charge) => !isNaN(charge) && charge !== null);
 
     if (charges.length === 0) {
       return {
@@ -178,37 +221,53 @@ export class TeacherService {
     }
 
     const modes = [
-      ...new Set(teacherIds.flatMap(({ Create_Session }) =>
-        Create_Session.map(({ mode }) => mode)
-      )),
+      ...new Set(
+        teacherIds.flatMap(({ Create_Session }) =>
+          Create_Session.map(({ mode }) => mode),
+        ),
+      ),
     ];
-
-
 
     const nextAvailability = teacherIds
       .flatMap(({ Create_Session }) =>
-        Create_Session.flatMap(({ available_slots_time_and_date }) => available_slots_time_and_date)
+        Create_Session.flatMap(
+          ({ available_slots_time_and_date }) => available_slots_time_and_date,
+        ),
       )
       .sort((a, b) => a.getTime() - b.getTime());
 
-    if (nextAvailability.length > 0 && nextAvailability[0].toDateString() === DateHelper.now().toDateString()) {
+    if (
+      nextAvailability.length > 0 &&
+      nextAvailability[0].toDateString() === DateHelper.now().toDateString()
+    ) {
       nextAvailability[0] = 'Today' as any;
     }
 
     return {
-      teacherIds: teacherIds.map(({ first_name, last_name, avatar, about_me, country, city, Create_Session }) => ({
-        username: `${first_name} ${last_name}`,
-        userid: Create_Session.length > 0 ? Create_Session[0]?.user_id : null, // Updated line
-        avatar,
-        about_me,
-        country,
-        city,
-        subjects: Create_Session.map(({ subject }) => subject),
-        modes,
-        priceRange: `${min} - ${max}`,
-        nextAvailability: nextAvailability.length > 0 ? nextAvailability[0] : null,
-        grades: '6-12',
-      })),
+      teacherIds: teacherIds.map(
+        ({
+          first_name,
+          last_name,
+          avatar,
+          about_me,
+          country,
+          city,
+          Create_Session,
+        }) => ({
+          username: `${first_name} ${last_name}`,
+          userid: Create_Session.length > 0 ? Create_Session[0]?.user_id : null, // Updated line
+          avatar,
+          about_me,
+          country,
+          city,
+          subjects: Create_Session.map(({ subject }) => subject),
+          modes,
+          priceRange: `${min} - ${max}`,
+          nextAvailability:
+            nextAvailability.length > 0 ? nextAvailability[0] : null,
+          grades: '6-12',
+        }),
+      ),
     };
   }
   //getting one session by id
@@ -222,8 +281,11 @@ export class TeacherService {
     }
     return session;
   }
-  async update(id: string, updateSessionDto: UpdateTeacherDto, userId: string): Promise<any> {
-
+  async update(
+    id: string,
+    updateSessionDto: UpdateTeacherDto,
+    userId: string,
+  ): Promise<any> {
     const session = await this.prismaService.create_Session.findUnique({
       where: { id },
     });
@@ -234,17 +296,20 @@ export class TeacherService {
 
     let isteacher = await this.prismaService.user.findUnique({
       where: { id: userId },
-      select: { type: true }
+      select: { type: true },
     });
 
     if (isteacher.type !== 'teacher') {
-      throw new ForbiddenException('Only users with TEACHER role can update sessions');
+      throw new ForbiddenException(
+        'Only users with TEACHER role can update sessions',
+      );
     }
 
     if (session.user_id !== userId) {
-      throw new ForbiddenException('You are not allowed to update this session');
+      throw new ForbiddenException(
+        'You are not allowed to update this session',
+      );
     }
-
 
     const updatedSession = await this.prismaService.create_Session.update({
       where: { id },
@@ -257,11 +322,9 @@ export class TeacherService {
       subject: updatedSession.subject,
       user_id: updatedSession.user_id,
     };
-
   }
   //delete session by id
   async remove(id: string, userId: string): Promise<any> {
-
     const session = await this.prismaService.create_Session.findUnique({
       where: { id },
     });
@@ -271,7 +334,9 @@ export class TeacherService {
     }
 
     if (session.user_id !== userId) {
-      throw new ForbiddenException('You are not allowed to delete this session');
+      throw new ForbiddenException(
+        'You are not allowed to delete this session',
+      );
     }
 
     await this.prismaService.create_Session.delete({
@@ -294,25 +359,22 @@ export class TeacherService {
       where: { id: userId, type: 'teacher' },
     });
 
-    const allreqForATeacher = await this.prismaService.reschedule_Session.findMany({
-      where: {
-        book_session: {
-          create_session: {
-            user_id: userId
-          }
-        }
-      }
-    });
+    const allreqForATeacher =
+      await this.prismaService.reschedule_Session.findMany({
+        where: {
+          book_session: {
+            create_session: {
+              user_id: userId,
+            },
+          },
+        },
+      });
 
     if (!checkTeacher) {
       throw new NotFoundException('Teacher not found or user is not a teacher');
-    }
-    else {
+    } else {
       return allreqForATeacher;
     }
-
-
-
   }
   async handleRequest(
     requestId: string,
@@ -330,17 +392,24 @@ export class TeacherService {
         },
         is_accepted: true,
         is_rejected: true,
-      }
+        user_id: true,
+      },
     });
 
     if (!request) {
       return { message: 'Reschedule request not found' };
     }
     if (request.is_accepted === 1) {
-      return { message: 'This request has already been accepted, you cannot reject this' };
+      return {
+        message:
+          'This request has already been accepted, you cannot reject this',
+      };
     }
     if (request.is_rejected === 1) {
-      return { message: 'This request has already been rejected, you cannot accept this' };
+      return {
+        message:
+          'This request has already been rejected, you cannot accept this',
+      };
     }
 
     //using ternary operator
@@ -360,7 +429,8 @@ export class TeacherService {
 
     if (!user || user.type !== 'teacher') {
       return {
-        message: 'Only users with TEACHER role can process reschedule requests.',
+        message:
+          'Only users with TEACHER role can process reschedule requests.',
       };
     }
 
@@ -379,6 +449,16 @@ export class TeacherService {
           reject_reason: null,
         },
       });
+
+      // accepted notification
+      const notificationPayload: any = {
+        sender_id: userId,
+        receiver_id: request.user_id,
+        text: `You have accepted a reschedule request for your session.`,
+        type: 'reschedule_request',
+      };
+      NotificationRepository.createNotification(notificationPayload);
+      this.messageGatway.server.emit('notification', notificationPayload);
 
       return { message: 'Reschedule request accepted successfully' };
     }
@@ -399,6 +479,16 @@ export class TeacherService {
         },
       });
 
+      // rejected notification
+      const notificationPayload: any = {
+        sender_id: userId,
+        receiver_id: request.user_id,
+        text: `You have rejected a reschedule request for your session.`,
+        type: 'reschedule_request',
+      };
+      NotificationRepository.createNotification(notificationPayload);
+      this.messageGatway.server.emit('notification', notificationPayload);
+
       return { message: 'Reschedule request rejected successfully' };
     }
 
@@ -415,7 +505,7 @@ export class TeacherService {
             user_id: true,
             subject: true,
             session_type: true,
-          }
+          },
         },
         user: {
           select: {
@@ -424,21 +514,22 @@ export class TeacherService {
             last_name: true,
             type: true,
             avatar: true,
-          }
+          },
         },
       },
     });
 
-    const formattedResults = (await all).map(booking => {
+    const formattedResults = (await all).map((booking) => {
       const teacherID = `${booking.create_session.user_id}`;
-
 
       const sessionId = booking.create_session.id;
       const subject = booking.create_session.subject;
       const sessionType = booking.create_session.session_type;
 
       const studentId = booking.user?.id || null;
-      const studentName = booking.user ? `${booking.user.first_name} ${booking.user.last_name}` : 'N/A';
+      const studentName = booking.user
+        ? `${booking.user.first_name} ${booking.user.last_name}`
+        : 'N/A';
       const studentType = booking.user?.type || 'N/A';
 
       return {
@@ -454,7 +545,7 @@ export class TeacherService {
           studentId: studentId,
           studentName: studentName,
           studentType: studentType,
-        }
+        },
       };
     });
 
@@ -505,16 +596,18 @@ export class TeacherService {
       };
     }
 
-
     const basePublicUrl = `http://localhost:${process.env.PORT || 4012}/public/storage/`;
 
     if (teacher.avatar) {
       teacher['avatar_url'] = `${basePublicUrl}avatar/${teacher.avatar}`;
     }
 
-    if (Array.isArray(teacher.certifications) && teacher.certifications.length > 0) {
-      teacher['certifications_urls'] = teacher.certifications.map(cert =>
-        `${basePublicUrl}certificate/${cert}`
+    if (
+      Array.isArray(teacher.certifications) &&
+      teacher.certifications.length > 0
+    ) {
+      teacher['certifications_urls'] = teacher.certifications.map(
+        (cert) => `${basePublicUrl}certificate/${cert}`,
       );
     }
 

@@ -1,22 +1,49 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-</head>
-<body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Application status mail</title>
+  </head>
+  <body>
+
+    <p>Dear <%= name %>,</p>
+
     <p>
-        Lorem ipsum dolor sit amet consectetur adipisicing elit. Consectetur dolorem consequuntur fugiat dolor dignissimos, aliquid aspernatur, ratione aperiam voluptatem excepturi tempora officiis eius inventore culpa, magnam assumenda ipsam exercitationem temporibus!
-        Accusantium at corrupti consectetur facere. Quos numquam voluptatem deserunt eveniet. In est molestias quia totam, dignissimos, facilis voluptatibus explicabo molestiae magnam unde aliquam deserunt eius. Laborum non voluptas sequi est!
-        Quae maiores perferendis vero voluptatibus error dolore eum? Et consequatur, doloremque asperiores odit praesentium fuga, maiores, ipsa incidunt quo ad sequi consectetur amet accusamus optio voluptatibus facilis alias magnam suscipit!
-        Adipisci, non voluptatibus. Delectus illo minus amet iste pariatur dolore enim itaque. Saepe laborum officiis ullam quibusdam, vero pariatur. Ut veniam perferendis cumque facere similique perspiciatis accusantium quaerat iusto eligendi!
-        Reiciendis labore iste nisi quaerat ea quam nobis ad nostrum assumenda commodi corporis illo consequuntur deserunt quibusdam impedit, ducimus odio autem, voluptatum ipsum temporibus harum deleniti doloribus magni! Atque, reprehenderit.
-        Totam labore, voluptatem provident, quos perferendis facilis dolorum, dignissimos nemo sequi architecto ratione? Cumque facere ea, necessitatibus officiis culpa illo quae sed? Quia vitae porro eaque, blanditiis voluptate assumenda nihil.
-        Doloribus fuga porro nisi sed laudantium voluptas magni magnam distinctio. Nesciunt sapiente, nobis voluptas quo possimus facilis eaque laudantium commodi quidem quae assumenda voluptatem fuga dignissimos quisquam porro vel pariatur?
-        Quae aperiam dolores magni veniam, asperiores ab obcaecati temporibus odio pariatur. Ducimus deserunt, nesciunt totam quos blanditiis tempore soluta natus inventore adipisci nam est at neque tempora? Dolores, ab. Ea!
-        Voluptatibus ea facere laudantium in voluptatum maxime at distinctio amet numquam quaerat esse quo, corporis quam autem neque necessitatibus tempore magni. Deserunt aliquam beatae iste exercitationem, accusamus nihil laudantium enim.
-        Ipsum, dolorem quos! Reiciendis, voluptatibus! Soluta aliquam dolor officia ut consequatur cumque explicabo, iusto libero! Voluptates veniam facilis dicta nulla placeat ipsa laborum, eos praesentium, non unde, veritatis libero nostrum?
+      We hope this message finds you well. We wanted to inform you about the
+      status of your tutor application with
+      <strong><%= process.env.APP_NAME %></strong>.
     </p>
-</body>
+
+    <% if (status === 'accepted') { %>
+    <p>
+      Congratulations! We are pleased to inform you that your application has
+      been approved. We were impressed with your qualifications and believe you
+      will be a valuable addition to our team of tutors.
+    </p>
+    <p>
+      Next Steps: Please log in to your account on our platform to complete any
+      remaining setup steps and start connecting with students.
+    </p>
+    <% } else if (status === 'rejected') { %>
+    <p>
+      We regret to inform you that after careful consideration, we have decided
+      not to move forward with your application at this time. This decision was
+      not easy, as we received many strong applications.
+    </p>
+    <p>
+      Feedback: If you would like feedback on your application or suggestions
+      for future applications, please feel free to reach out to us.
+    </p>
+    <% } %>
+
+    <p>
+      We appreciate the time and effort you invested in your application and
+      encourage you to apply again in the future.
+    </p>
+
+    <p>Best regards,</p>
+    <p><strong>The <%= process.env.APP_NAME %> Team</strong></p>
+
+  </body>
 </html>

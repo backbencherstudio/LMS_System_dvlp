@@ -58,8 +58,8 @@ export class MessageGateway
   // implement jwt token validation
   async handleConnection(client: Socket, ...args: any[]) {
     try {
-      // const token = client.handshake.headers.authorization?.split(' ')[1];
-      const token = client.handshake.auth.token;
+      const token = client.handshake.headers.authorization?.split(' ')[1];
+      // const token = client.handshake.auth.handToken;
       if (!token) {
         client.disconnect();
         console.log('No token provided');
@@ -70,6 +70,7 @@ export class MessageGateway
       // const decoded: any = this.jwtService.verify(token);
       // const userId = client.handshake.query.userId as string;
       const userId = decoded.sub;
+      console.log('Decoded userId:', userId);
       if (!userId) {
         client.disconnect();
         console.log('Invalid token');
@@ -91,6 +92,8 @@ export class MessageGateway
       console.error('Error handling connection:', error);
     }
   }
+
+  // async handleConnection(client: Socket, ...args: any[]) {}
 
   async handleDisconnect(client: Socket) {
     const userId = [...this.clients.entries()].find(

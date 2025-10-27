@@ -11,6 +11,7 @@ import { AppModule } from './app.module';
 import appConfig from './config/app.config';
 import { CustomExceptionFilter } from './common/exception/custom-exception.filter';
 import { SojebStorage } from './common/lib/Disk/SojebStorage';
+import { IoAdapter } from '@nestjs/platform-socket.io';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -18,10 +19,15 @@ async function bootstrap() {
   });
 
   // Handle raw body for webhooks
+  app.useWebSocketAdapter(new IoAdapter(app));
   // app.use('/payment/stripe/webhook', express.raw({ type: 'application/json' }));
 
   app.setGlobalPrefix('api');
-  app.enableCors();
+  app.enableCors({
+    origin: true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true,
+  });
   app.use(helmet());
   // Enable it, if special charactrers not encoding perfectly
   // app.use((req, res, next) => {
@@ -37,10 +43,15 @@ async function bootstrap() {
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          imgSrc: ["'self'", "https://techterms.com", "https://tse3.mm.bing.net", "data:"],
+          imgSrc: [
+            "'self'",
+            'https://techterms.com',
+            'https://tse3.mm.bing.net',
+            'data:',
+          ],
         },
       },
-    })
+    }),
   );
   app.useStaticAssets(join(__dirname, '..', 'public'), {
     index: false,
@@ -89,7 +100,7 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, options);
   SwaggerModule.setup('api/docs', app, document);
   // end swagger
-       
+
   await app.listen(process.env.PORT ?? 4000, '0.0.0.0');
 }
 bootstrap();

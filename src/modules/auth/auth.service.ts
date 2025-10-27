@@ -23,6 +23,8 @@ import { StripePayment } from '../../common/lib/Payment/stripe/StripePayment';
 import { StringHelper } from '../../common/helper/string.helper';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
+import { NotificationRepository } from 'src/common/repository/notification/notification.repository';
+import { MessageGateway } from '../chat/message/message.gateway';
 
 @Injectable()
 export class AuthService {
@@ -30,8 +32,9 @@ export class AuthService {
     private jwtService: JwtService,
     private prisma: PrismaService,
     private mailService: MailService,
+    private readonly messageGatway: MessageGateway,
     @InjectRedis() private readonly redis: Redis,
-  ) { }
+  ) {}
 
   async createUser(
     data: CreateUserDto,
@@ -205,6 +208,31 @@ export class AuthService {
       };
     }
 
+    // Notify admins when a new teacher registers
+    if (data.type === 'teacher') {
+      const admins = await this.prisma.user.findMany({
+        where: { type: 'admin' },
+        select: { id: true },
+      });
+
+      if (admins && admins.length > 0) {
+        for (const admin of admins) {
+          const teacherRegisterNotificationPayload: any = {
+            sender_id: user.id,
+            receiver_id: admin.id,
+            text: `A new tutor has registered and is awaiting for approval. Name: ${user.first_name} ${user.last_name}, Email: ${user.email}`,
+            type: 'teacher_register',
+          };
+          NotificationRepository.createNotification(
+            teacherRegisterNotificationPayload,
+          );
+          this.messageGatway.server.emit(
+            'notification',
+            teacherRegisterNotificationPayload,
+          );
+        }
+      }
+    }
     try {
       const token = await UcodeRepository.createVerificationToken({
         userId: user.id,
@@ -225,35 +253,36 @@ export class AuthService {
     }
     return user;
   }
+
   async login({ email, password }) {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user)
       throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
 
-    
-    if(user.type !=='admin'){
-         if (user.email_verified_at === null) {
-      return {
-        success: false,
-        message: 'Your email and user account are not verified. Please check your inbox for the email verification link.',
-      };
-    }
+    if (user.type !== 'admin') {
+      if (user.email_verified_at === null) {
+        return {
+          success: false,
+          message:
+            'Your email and user account are not verified. Please check your inbox for the email verification link.',
+        };
+      }
 
-    if (user.is_verified === 0) {
-      return {
-        success: false,
-        message: 'Your email and user account are not verified. Please check your inbox for the email verification link.',
-      };
-    }
+      if (user.is_verified === 0) {
+        return {
+          success: false,
+          message:
+            'Your email and user account are not verified. Please check your inbox for the email verification link.',
+        };
+      }
 
-    if (user.is_restricted === 1) {
-      return {
-        success: false,
-        message: 'Your account is restricted. Please contact support.',
-      };
+      if (user.is_restricted === 1) {
+        return {
+          success: false,
+          message: 'Your account is restricted. Please contact support.',
+        };
+      }
     }
-    }
-
 
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid)
@@ -271,6 +300,17 @@ export class AuthService {
       60 * 60 * 24 * 7, // 7 days
     );
 
+    // send login success notification
+    const notificationPayload: any = {
+      sender_id: '',
+      receiver_id: user.id,
+      text: 'You have successfully logged in to your account.',
+      type: 'login_success',
+    };
+
+    NotificationRepository.createNotification(notificationPayload);
+    this.messageGatway.server.emit('notification', notificationPayload);
+
     return {
       message: 'Logged in successfully',
       authorization: {
@@ -279,6 +319,7 @@ export class AuthService {
       },
     };
   }
+
   async me(userId: string) {
     try {
       const user = await this.prisma.user.findFirst({
@@ -314,9 +355,12 @@ export class AuthService {
       const basePublicUrl = `http://localhost:${process.env.PORT || 5000}/public/storage/`;
 
       if (user.type === 'teacher') {
-        if (Array.isArray(user.certifications) && user.certifications.length > 0) {
-          user['certifications_urls'] = user.certifications.map(cert =>
-            `${basePublicUrl}certificate/${cert}`
+        if (
+          Array.isArray(user.certifications) &&
+          user.certifications.length > 0
+        ) {
+          user['certifications_urls'] = user.certifications.map(
+            (cert) => `${basePublicUrl}certificate/${cert}`,
           );
         }
       }
@@ -326,7 +370,6 @@ export class AuthService {
           appConfig().storageUrl.avatar + user.avatar,
         );
       }
-
 
       //delete user.certifications;
       delete user.certifications;

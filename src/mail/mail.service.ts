@@ -92,8 +92,8 @@ export class MailService {
 
       const template =
         params.status === 'accepted'
-          ? 'tutor_application_status_mail.ejs'
-          : 'tutor_application_status_mail.ejs';
+          ? './tutor_applicatioonstatus_mail.ejs'
+          : './tutor_applicatioonstatus_mail.ejs';
 
       // add to queue
       await this.queue.add('sendTutorApplicationStatusEmail', {
@@ -102,6 +102,7 @@ export class MailService {
         template: template,
         context: {
           name: params.name,
+          status: params.status,
         },
       });
     } catch (error) {

@@ -218,7 +218,7 @@ export class AuthService {
       if (admins && admins.length > 0) {
         for (const admin of admins) {
           const teacherRegisterNotificationPayload: any = {
-            sender_id: '',
+            sender_id: user.id,
             receiver_id: admin.id,
             text: `A new tutor has registered and is awaiting for approval. Name: ${user.first_name} ${user.last_name}, Email: ${user.email}`,
             type: 'teacher_register',

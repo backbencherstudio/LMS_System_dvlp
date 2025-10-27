@@ -81,35 +81,6 @@ export class ExtrasService {
         },
       });
 
-      // Report notification logic can be added here
-      const reportNotificationPayload: any = {
-        sender_id: '',
-        receiver_id: reportedId,
-        text: `You have been reported for: ${createReportDTO.reason}`,
-        type: 'report',
-      };
-
-      NotificationRepository.createNotification(reportNotificationPayload);
-      this.messageGateway.server.emit(
-        'notification',
-        reportNotificationPayload,
-      );
-
-      // report notification for reporter
-
-      const reporterNotificationPayload: any = {
-        sender_id: '',
-        receiver_id: reporterId,
-        text: `You have reported a user for: ${createReportDTO.reason}`,
-        type: 'report_confirmation',
-      };
-
-      NotificationRepository.createNotification(reporterNotificationPayload);
-      this.messageGateway.server.emit(
-        'notification',
-        reporterNotificationPayload,
-      );
-
       // report notification for admin
       const admins = await this.prismaService.user.findMany({
         where: { type: 'admin' },
@@ -118,7 +89,7 @@ export class ExtrasService {
       if (admins && admins.length > 0) {
         for (const admin of admins) {
           const adminNotificationPayload: any = {
-            sender_id: '',
+            sender_id: reporterId,
             receiver_id: admin.id,
             text: `A new report has been filed by ${reporterId} against ${reportedId} for: ${createReportDTO.reason}`,
             type: 'new_report',

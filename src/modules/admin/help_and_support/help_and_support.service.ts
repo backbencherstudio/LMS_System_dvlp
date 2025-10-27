@@ -35,7 +35,7 @@ export class HelpAndSupportService {
     if (admins && admins.length > 0) {
       for (const admin of admins) {
         const adminNotificationPayload: any = {
-          sender_id: '',
+          sender_id: userId,
           receiver_id: admin.id,
           text: `A new contact message has been received. Subject: ${subject} from ${full_name} email: ${email} `,
           type: 'contact_message',
@@ -102,7 +102,7 @@ export class HelpAndSupportService {
     }
 
     const supportUserNotificationPayload: any = {
-      sender_id: '',
+      sender_id: id,
       receiver_id: message.user_id,
       text: `Your help and support message status has been updated to ${message.status}.`,
       type: 'help_and_support_status_updated',

@@ -104,7 +104,7 @@ export class TeacherService {
       });
 
       const notificationPayload: any = {
-        sender_id: '',
+        sender_id: createSessionDto.user_id,
         receiver_id: createSessionDto.user_id,
         text: 'You have successfully created a new teaching session.',
         type: 'session',
@@ -116,7 +116,7 @@ export class TeacherService {
       if (admins.length > 0) {
         for (const admin of admins) {
           const admin_notificationPayload: any = {
-            sender_id: '',
+            sender_id: createSessionDto.user_id,
             receiver_id: admin.id,
             text: `A new session has been created by teacher with ID: ${createSessionDto.user_id} Session Name: ${session.subject}.`,
             type: 'session',
@@ -391,6 +391,7 @@ export class TeacherService {
         },
         is_accepted: true,
         is_rejected: true,
+        user_id: true,
       },
     });
 
@@ -450,8 +451,8 @@ export class TeacherService {
 
       // accepted notification
       const notificationPayload: any = {
-        sender_id: '',
-        receiver_id: userId,
+        sender_id: userId,
+        receiver_id: request.user_id,
         text: `You have accepted a reschedule request for your session.`,
         type: 'reschedule_request',
       };
@@ -479,8 +480,8 @@ export class TeacherService {
 
       // rejected notification
       const notificationPayload: any = {
-        sender_id: '',
-        receiver_id: userId,
+        sender_id: userId,
+        receiver_id: request.user_id,
         text: `You have rejected a reschedule request for your session.`,
         type: 'reschedule_request',
       };

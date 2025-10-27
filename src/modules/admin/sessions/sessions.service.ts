@@ -94,16 +94,21 @@ export class SessionsService {
       });
 
       // restrict session notification
-      const adminNotificationPayload: any = {
+      const teacherSessionNotificationPayload: any = {
         sender_id: '',
         receiver_id: session.user_id,
         text: `Your session with Subject Name: ${session.subject} has been restricted. Reason: ${reason}`,
         type: 'session_restriction',
       };
 
-      NotificationRepository.createNotification(adminNotificationPayload);
+      NotificationRepository.createNotification(
+        teacherSessionNotificationPayload,
+      );
 
-      this.messageGateway.server.emit('notification', adminNotificationPayload);
+      this.messageGateway.server.emit(
+        'notification',
+        teacherSessionNotificationPayload,
+      );
 
       return {
         success: true,

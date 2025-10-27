@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Query,
+  Redirect,
   Req,
   Res,
   UploadedFile,
@@ -389,6 +390,7 @@ export class AuthController {
 
   // verify email to verify the email
   @ApiOperation({ summary: 'Verify email' })
+  // @Redirect('https://docs.nestjs.com', 302)
   @Get('verify-email')
   async verifyEmail(@Query() data: VerifyEmailDto) {
     try {

@@ -101,7 +101,7 @@ export class StudentsService {
 
     // Send  booking confirmation student notification
     const bookNotificationPayload: any = {
-      sender_id: '',
+      sender_id: userId,
       receiver_id: userId,
       title: 'New Session Booking',
       message: `A new session has been booked for ${session.subject} on ${slotDate.toISOString()}`,
@@ -114,7 +114,7 @@ export class StudentsService {
 
     // send booking confirmation teacher notification
     const bookTeacherNotificationPayload: any = {
-      sender_id: '',
+      sender_id: userId,
       receiver_id: session.user_id,
       title: 'New Session Booking',
       message: `A new session has been booked for ${session.subject} by  ${createStudentDto.name} on ${slotDate.toISOString()}`,
@@ -136,7 +136,7 @@ export class StudentsService {
     if (admins && admins.length > 0) {
       for (const admin of admins) {
         const bookAdminNotificationPayload: any = {
-          sender_id: '',
+          sender_id: userId,
           receiver_id: admin.id,
           title: 'New Session Booking',
           message: `A new session has been booked for ${session.subject} by  ${createStudentDto.name} on ${slotDate.toISOString()}`,
@@ -400,7 +400,7 @@ export class StudentsService {
 
       // send join session notification
       const joinNotificationPayload: any = {
-        sender_id: '',
+        sender_id: userId,
         receiver_id: userId,
         text: `You have joined the session: ${session.username}`,
         type: 'session_joined',
@@ -419,7 +419,7 @@ export class StudentsService {
         select: { subject: true, user_id: true },
       });
       const teacherNotificationPayload: any = {
-        sender_id: '',
+        sender_id: userId,
         receiver_id: createSession.user_id,
         text: `Your session with Subject Name: ${createSession.subject} has been joined by ${session.username}`,
         type: 'session_joined',

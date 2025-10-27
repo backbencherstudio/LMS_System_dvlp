@@ -390,7 +390,7 @@ export class AuthController {
 
   // verify email to verify the email
   @ApiOperation({ summary: 'Verify email' })
-  // @Redirect('https://docs.nestjs.com', 302)
+ @Redirect('http://localhost:3000/verify-email', 302)
   @Get('verify-email')
   async verifyEmail(@Query() data: VerifyEmailDto) {
     try {

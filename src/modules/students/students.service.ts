@@ -333,24 +333,22 @@ export class StudentsService {
 
     const formattedCompletedSessions = completedSessions.map((session) => {
       const createSession = session.create_session ?? null;
-      const rating =
-        session.Rate_Session?.length > 0
-          ? session.Rate_Session[0].rating
-          : 'Not rated yet';
+      const rating = session.Rate_Session?.length > 0 ? session.Rate_Session[0].rating : 0;
 
       const sessionDetails = createSession
         ? {
-            sessionId: createSession.id,
-            teacherName: teacherName || 'N/A',
-            avatar: avatar,
-            sessionRate: rating,
-            sessionType: createSession.session_type,
-            subject: createSession.subject,
-            charge: createSession.session_charge,
-            mode: createSession.mode,
-            joinLink: createSession.join_link ?? 'N/A',
-            sessionPeriod: session.session_period || '60 mins',
-          }
+          sessionId: createSession.id,
+          teacherName: teacherName || 'N/A',
+          teacherId: createSession.user_id,
+          avatar: avatar,
+          sessionRate: rating,
+          sessionType: createSession.session_type,
+          subject: createSession.subject,
+          charge: createSession.session_charge,
+          mode: createSession.mode,
+          joinLink: createSession.join_link ?? 'N/A',
+          sessionPeriod: session.session_period || '60 mins',
+        }
         : {
             sessionRate: rating,
           };
@@ -575,14 +573,27 @@ export class StudentsService {
         avatar: true,
         country: true,
         city: true,
+        grade_level: true,
         about_me: true,
         created_at: true,
       },
     });
+
+    const totalBookedSessions = await this.prisma.book_Session.count({
+      where: { user_id: id },
+    });
+
     if (!student) {
       return { message: 'Student not found' };
     }
-    return { student };
+    return {
+      success: true,
+      message: 'Student fetched successfully',
+      data: {
+        ...student,
+        totalBookedSessions,
+      },
+     };
   }
   async rateASession(
     body: StudentRatingDto,
@@ -611,16 +622,18 @@ export class StudentsService {
         return { message: 'Booking session not found' };
       }
 
-      const existingRating = await this.prisma.rate_Session.findFirst({
+      const existingRating = await this.prisma.rate_Session.findUnique({
         where: {
-          user_id: userId,
-          book_session_id: bookSession.id,
+          user_id_book_session_id: {
+            user_id: userId,
+            book_session_id: bookSession.id,
+          },
         },
       });
 
-      if (existingRating) {
-        return { message: 'You have already rated this session' };
-      }
+      // if (existingRating) {
+      //   return { message: 'You have already rated this session' };
+      // }
 
       const createRateASession = await this.prisma.rate_Session.create({
         data: {
@@ -638,4 +651,91 @@ export class StudentsService {
       throw new Error(`Service error: ${error.message || error}`);
     }
   }
+  async getAllBookedSessionsMaterialsForStudent(userId: string) {
+    const bookings = await this.prisma.book_Session.findMany({
+      where: { user_id: userId },
+      select: {
+        id: true,
+        username: true,
+        session_date: true || null,
+        is_joined: true || null,
+        is_cancelled: true || null,
+        is_completed: true || null,
+        is_request_for_reschedule: true || null,
+        status: true || null,
+        create_session: {
+          select: {
+            id: true,
+            user_id: true,
+            session_type: true,
+            subject: true,
+            session_charge: true,
+            mode: true,
+            join_link: true,
+            pdf_attachment: true,
+          },
+        },
+        Reschedule_Session: {
+          select: {
+            id: true,
+            subject: true,
+            reason: true,
+            is_accepted: true,
+            is_rejected: true,
+            reject_reason: true,
+            rescheduled_date: true,
+          },
+        },
+      },
+    });
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, first_name: true, last_name: true, avatar: true, type: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (userId !== user.id) {
+      return { message: "Unauthorized access to sessions" };
+    }
+
+
+
+    if (user?.type !== 'student') {
+      throw new BadRequestException(
+        'Only students can access their booked sessions',
+      );
+    }
+
+    const teacherName = `${user?.first_name ?? ''} ${user?.last_name ?? ''}`;
+    const avatar = user?.avatar ?? null;
+
+    const formattedBookings = bookings.map((booking) => {
+      return {
+
+        sessionDate: booking.session_date
+          ? new Date(booking.session_date).toISOString()
+          : 'N/A',
+
+        sessionDetails: booking.create_session
+          ? {
+            teacherName: teacherName.trim() || 'N/A',
+            avatar: avatar,
+            subject: booking.create_session.subject,
+            mode: booking.create_session.mode,
+            pdfAttachment: booking.create_session.pdf_attachment ?? 'N/A',
+          }
+          : "sessionDetails not available",
+
+      };
+    });
+
+    return {
+      bookings: formattedBookings,
+    };
+  }
+
 }

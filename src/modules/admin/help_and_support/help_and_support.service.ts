@@ -118,7 +118,26 @@ export class HelpAndSupportService {
       message: 'Help and support message status updated successfully.',
       data: message,
     };
+  }  
+
+  // report section 
+
+  async getAllreports(){
+    try {
+      const reports = await this.prisma.report.findMany({
+
+      });
+      return {
+        success: true,
+        data: reports
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Error fetching reports',
+      };
+    }
   }
 
-  // report section
-}
+  }
+

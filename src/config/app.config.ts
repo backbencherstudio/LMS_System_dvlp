@@ -91,6 +91,8 @@ export default () => ({
     blog: '/blog',
     avatar: '/avatar',
     websiteInfo: '/website-info',
+    // meterial
+    material: '/material',
     // chat
     attachment: '/attachment',
     team: '/team',

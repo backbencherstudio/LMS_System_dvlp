@@ -319,81 +319,84 @@ export class AuthService {
   //     },
   //   };
   // }
-async login({ email, password }) {
-  const user = await this.prisma.user.findUnique({ where: { email } });
-  
-  if (!user)
-    throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
+  async login({ email, password }) {
+    const user = await this.prisma.user.findUnique({ where: { email } });
 
-  if (user.type !== 'admin') {
-    if (user.email_verified_at === null) {
-      return {
-        success: false,
-        message:
-          'Your email and user account are not verified. Please check your inbox for the email verification link.',
-      };
+    if (!user)
+      throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
+
+    if (user.type !== 'admin') {
+      if (user.email_verified_at === null) {
+        return {
+          success: false,
+          message:
+            'Your email and user account are not verified. Please check your inbox for the email verification link.',
+        };
+      }
+
+      if (user.is_verified === 0) {
+        return {
+          success: false,
+          message:
+            'Your email and user account are not verified. Please check your inbox for the email verification link.',
+        };
+      }
+
+      if (user.is_restricted === 1) {
+        return {
+          success: false,
+          message: 'Your account is restricted. Please contact support.',
+        };
+      }
     }
 
-    if (user.is_verified === 0) {
-      return {
-        success: false,
-        message:
-          'Your email and user account are not verified. Please check your inbox for the email verification link.',
-      };
+    const isValid = await bcrypt.compare(password, user.password);
+    if (!isValid)
+      throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
+
+    const payload = { email: user.email, sub: user.id, type: user.type };
+
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
+    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+
+    await this.redis.set(
+      `refresh_token:${user.id}`,
+      refreshToken,
+      'EX',
+      60 * 60 * 24 * 7, // 7 days
+    );
+
+    // send login success notification
+    const notificationPayload: any = {
+      sender_id: '',
+      receiver_id: user.id,
+      text: 'You have successfully logged in to your account.',
+      type: 'login_success',
+    };
+
+    const userSocketId = this.messageGateway.clients.get(user.id);
+
+    if (userSocketId) {
+      this.messageGateway.server
+        .to(userSocketId)
+        .emit('notification', notificationPayload);
+      console.log(`Notification sent to user ${user.id}`);
+    } else {
+      console.log(
+        `User ${user.id} is not connected, notification will be sent later.`,
+      );
     }
 
-    if (user.is_restricted === 1) {
-      return {
-        success: false,
-        message: 'Your account is restricted. Please contact support.',
-      };
-    }
+    await NotificationRepository.createNotification(notificationPayload);
+    //-----notification end
+    return {
+      message: 'Logged in successfully',
+      authorization: {
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      },
+    };
   }
-
-  const isValid = await bcrypt.compare(password, user.password);
-  if (!isValid)
-    throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
-
-  const payload = { email: user.email, sub: user.id, type: user.type };
-
-  const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
-  const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
-
-  await this.redis.set(
-    `refresh_token:${user.id}`,
-    refreshToken,
-    'EX',
-    60 * 60 * 24 * 7, // 7 days
-  );
-
-  // send login success notification
-  const notificationPayload: any = {
-    sender_id: '',
-    receiver_id: user.id,
-    text: 'You have successfully logged in to your account.',
-    type: 'login_success',
-  };
-
-  const userSocketId = this.messageGateway.clients.get(user.id); 
-  
-  if (userSocketId) {
-    this.messageGateway.server.to(userSocketId).emit('notification', notificationPayload);
-    console.log(`Notification sent to user ${user.id}`);
-  } else {
-    console.log(`User ${user.id} is not connected, notification will be sent later.`);
-  }
-
-  await NotificationRepository.createNotification(notificationPayload);
- //-----notification end
-  return {
-    message: 'Logged in successfully',
-    authorization: {
-      access_token: accessToken,
-      refresh_token: refreshToken,
-    },
-  };
-}
-
 
   async me(userId: string) {
     try {
@@ -945,7 +948,7 @@ async login({ email, password }) {
       };
     }
   }
-  async verifyEmail({ email, token }) {
+  async verifyEmail({ email, token, type }) {
     try {
       const user = await UserRepository.exist({
         field: 'email',
@@ -978,9 +981,9 @@ async login({ email, password }) {
           return {
             success: true,
             message: 'Email verified successfully',
-            data:{
+            data: {
               user_type: user.type,
-            }
+            },
           };
         } else {
           return {

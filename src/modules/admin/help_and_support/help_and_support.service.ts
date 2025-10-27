@@ -102,7 +102,7 @@ export class HelpAndSupportService {
     }
 
     const supportUserNotificationPayload: any = {
-      sender_id: id,
+      sender_id: '',
       receiver_id: message.user_id,
       text: `Your help and support message status has been updated to ${message.status}.`,
       type: 'help_and_support_status_updated',
@@ -118,18 +118,16 @@ export class HelpAndSupportService {
       message: 'Help and support message status updated successfully.',
       data: message,
     };
-  }  
+  }
 
-  // report section 
+  // report section
 
-  async getAllreports(){
+  async getAllreports() {
     try {
-      const reports = await this.prisma.report.findMany({
-
-      });
+      const reports = await this.prisma.report.findMany({});
       return {
         success: true,
-        data: reports
+        data: reports,
       };
     } catch (error) {
       return {
@@ -138,6 +136,4 @@ export class HelpAndSupportService {
       };
     }
   }
-
-  }
-
+}

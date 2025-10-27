@@ -55,7 +55,7 @@ export class MessageGateway
     console.log('Websocket server started');
   }
 
-  // implement jwt token validation
+  //implement jwt token validation
   async handleConnection(client: Socket, ...args: any[]) {
     try {
       const token = client.handshake.headers.authorization?.split(' ')[1];
@@ -119,6 +119,12 @@ export class MessageGateway
       console.log(`User ${userId} disconnected`);
     }
   }
+
+
+
+
+
+
 
   @SubscribeMessage('joinRoom')
   handleRoomJoin(client: Socket, body: { room_id: string }) {
@@ -279,4 +285,17 @@ export class MessageGateway
       this.chunks.delete(payload.recordingId);
     }
   }
+
+
+@SubscribeMessage('notification')
+handleNotification(client: Socket, @MessageBody() payload: any) {
+  try {
+    client.emit('notification', payload);
+    console.log('Received notification:', payload);
+  } catch (error) {
+    console.error('Error sending notification:', error);
+  }
+}
+
+
 }

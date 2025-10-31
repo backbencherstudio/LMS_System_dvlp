@@ -22,7 +22,7 @@ export class TeacherService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly messageGatway: MessageGateway,
-  ) {}
+  ) { }
 
   // session creating
   async create(createSessionDto: CreateSessionDto) {
@@ -40,7 +40,7 @@ export class TeacherService {
 
     if (userExists.is_accepted === 'pending') {
       return {
-        success: true,
+        success: false,
         message:
           'Your application is still pending. You cannot create a session until your application is accepted.',
       };
@@ -160,6 +160,127 @@ export class TeacherService {
     });
   }
   //getting all sessions
+  // async findAll() {
+  //   const sessions = await this.prismaService.create_Session.findMany({
+  //     select: {
+  //       id: true,
+  //       user_id: true,
+  //       session_charge: true,
+  //     },
+  //   });
+
+  //   const charges = sessions
+  //     .map(({ session_charge }) => Number(session_charge))
+  //     .filter((charge) => !isNaN(charge) && charge !== null);
+
+  //   if (charges.length === 0) {
+  //     return {
+  //       id: null,
+  //       name: null,
+  //       priceRange: 'N/A',
+  //     };
+  //   }
+
+  //   const min = Math.min(...charges);
+  //   let max = Math.max(...charges);
+
+  //   if (min === max) {
+  //     max = min + 20;
+  //   }
+
+  //   const validUserIds = sessions
+  //     .map(({ user_id }) => user_id)
+  //     .filter((id): id is string => id !== null);
+
+  //   const teacherIds = await this.prismaService.user.findMany({
+  //     where: { id: { in: validUserIds } },
+  //     select: {
+  //       first_name: true,
+  //       email: true,
+  //       last_name: true,
+  //       about_me: true,
+  //       country: true,
+  //       avatar: true,
+  //       Rate_Session: true,
+  //       city: true,
+  //       Create_Session: {
+  //         select: {
+  //           subject: true,
+  //           user_id: true,
+  //           session_charge: true,
+  //           mode: true,
+  //           available_slots_time_and_date: true,
+  //         },
+  //       },
+  //     },
+  //   });
+
+  //   if (teacherIds.length === 0) {
+  //     return {
+  //       teacherIds: null,
+  //       priceRange: `${min} - ${max}`,
+  //     };
+  //   }
+
+  //   const modes = [
+  //     ...new Set(
+  //       teacherIds.flatMap(({ Create_Session }) =>
+  //         Create_Session.map(({ mode }) => mode),
+  //       ),
+  //     ),
+  //   ];
+
+  //   const nextAvailability = teacherIds
+  //     .flatMap(({ Create_Session }) =>
+  //       Create_Session.flatMap(
+  //         ({ available_slots_time_and_date }) => available_slots_time_and_date,
+  //       ),
+  //     )
+  //     .sort((a, b) => a.getTime() - b.getTime());
+
+  //   if (
+  //     nextAvailability.length > 0 &&
+  //     nextAvailability[0].toDateString() === DateHelper.now().toDateString()
+  //   ) {
+  //     nextAvailability[0] = 'Today' as any;
+  //   }
+  //   const avgRate = teacherIds.map(({ Rate_Session }) => {
+  //     const rates = Rate_Session.map(({ rating }) => rating);
+  //     if (rates.length === 0) return 0;
+  //     const total = rates.reduce((acc, curr) => acc + curr, 0);
+  //     return total / rates.length;
+  //   });
+
+  //   return {
+  //     teacherIds: teacherIds.map(
+  //       ({
+  //         first_name,
+  //         last_name,
+  //         avatar,
+  //         about_me,
+  //         country,
+  //         email,
+  //         city,
+  //         Create_Session,
+  //       }) => ({
+  //         username: `${first_name} ${last_name}`,
+  //         userid: Create_Session.length > 0 ? Create_Session[0]?.user_id : null, // Updated line
+  //         avatar,
+  //         email,
+  //         about_me,
+  //         avgRate,
+  //         country,
+  //         city,
+  //         subjects: Create_Session.map(({ subject }) => subject),
+  //         modes,
+  //         priceRange: `${min} - ${max}`,
+  //         nextAvailability:
+  //           nextAvailability.length > 0 ? nextAvailability[0] : null,
+  //         grades: '6-12',
+  //       }),
+  //     ),
+  //   };
+  // }
   async findAll() {
     const sessions = await this.prismaService.create_Session.findMany({
       select: {
@@ -169,25 +290,6 @@ export class TeacherService {
       },
     });
 
-    const charges = sessions
-      .map(({ session_charge }) => Number(session_charge))
-      .filter((charge) => !isNaN(charge) && charge !== null);
-
-    if (charges.length === 0) {
-      return {
-        id: null,
-        name: null,
-        priceRange: 'N/A',
-      };
-    }
-
-    const min = Math.min(...charges);
-    let max = Math.max(...charges);
-
-    if (min === max) {
-      max = min + 20;
-    }
-
     const validUserIds = sessions
       .map(({ user_id }) => user_id)
       .filter((id): id is string => id !== null);
@@ -196,11 +298,14 @@ export class TeacherService {
       where: { id: { in: validUserIds } },
       select: {
         first_name: true,
+        email: true,
         last_name: true,
         about_me: true,
         country: true,
         avatar: true,
+        Rate_Session: true,
         city: true,
+        id: true,
         Create_Session: {
           select: {
             subject: true,
@@ -216,60 +321,59 @@ export class TeacherService {
     if (teacherIds.length === 0) {
       return {
         teacherIds: null,
-        priceRange: `${min} - ${max}`,
+        priceRange: 'N/A',
       };
     }
 
-    const modes = [
-      ...new Set(
-        teacherIds.flatMap(({ Create_Session }) =>
-          Create_Session.map(({ mode }) => mode),
-        ),
-      ),
-    ];
+    const teachers = teacherIds.map((teacher) => {
+      const { first_name, last_name, avatar, about_me, country, email, city, Rate_Session, Create_Session } = teacher;
 
-    const nextAvailability = teacherIds
-      .flatMap(({ Create_Session }) =>
-        Create_Session.flatMap(
-          ({ available_slots_time_and_date }) => available_slots_time_and_date,
-        ),
-      )
-      .sort((a, b) => a.getTime() - b.getTime());
+      //  per-user price range
+      const charges = Create_Session
+        .map(({ session_charge }) => Number(session_charge))
+        .filter((charge) => !isNaN(charge) && charge !== null);
 
-    if (
-      nextAvailability.length > 0 &&
-      nextAvailability[0].toDateString() === DateHelper.now().toDateString()
-    ) {
-      nextAvailability[0] = 'Today' as any;
-    }
+      let priceRange = 'N/A';
+      if (charges.length > 0) {
+        let min = Math.min(...charges);
+        let max = Math.max(...charges);
+        if (min === max) max = min + 20;
+        priceRange = `${min} - ${max}`;
+      }
 
-    return {
-      teacherIds: teacherIds.map(
-        ({
-          first_name,
-          last_name,
-          avatar,
-          about_me,
-          country,
-          city,
-          Create_Session,
-        }) => ({
-          username: `${first_name} ${last_name}`,
-          userid: Create_Session.length > 0 ? Create_Session[0]?.user_id : null, // Updated line
-          avatar,
-          about_me,
-          country,
-          city,
-          subjects: Create_Session.map(({ subject }) => subject),
-          modes,
-          priceRange: `${min} - ${max}`,
-          nextAvailability:
-            nextAvailability.length > 0 ? nextAvailability[0] : null,
-          grades: '6-12',
-        }),
-      ),
-    };
+      const rates = Rate_Session.map(({ rating }) => rating);
+      const avgRate = rates.length ? (rates.reduce((a, b) => a + b, 0) / rates.length) : 0;
+
+      const modes = [...new Set(Create_Session.map(({ mode }) => mode))];
+      const availability = Create_Session.flatMap(
+        ({ available_slots_time_and_date }) => available_slots_time_and_date,
+      ).sort((a, b) => a.getTime() - b.getTime());
+
+      let nextAvailability = availability.length > 0 ? availability[0] : null;
+      // if (nextAvailability && nextAvailability.toDateString() === DateHelper.now().toDateString()) {
+      //   nextAvailability = 'Today' as any;
+      // }
+
+      return {
+        username: `${first_name} ${last_name}`,
+        userid: teacher.id,
+        avatar,
+        email,
+        about_me,
+        avgRate,
+        country,
+        city,
+        subjects: Create_Session.map(({ subject }) => subject),
+        modes,
+        priceRange,
+        nextAvailability,
+        grades: '6-12',
+      };
+    });
+
+    return { teacherIds: teachers };
   }
+
   //getting one session by id
   async findOne(id: string) {
     const session = await this.prismaService.create_Session.findUnique({
@@ -370,12 +474,19 @@ export class TeacherService {
         },
       });
 
+
+
     if (!checkTeacher) {
       throw new NotFoundException('Teacher not found or user is not a teacher');
     } else {
       return allreqForATeacher;
+
+
     }
   }
+
+
+
   async handleRequest(
     requestId: string,
     userId: string,
@@ -568,55 +679,75 @@ export class TeacherService {
       },
     });
   }
-  async getATeacherById(teacherId: string) {
-    const teacher = await this.prismaService.user.findFirst({
-      where: {
-        id: teacherId,
-        type: 'teacher',
-      },
-      select: {
-        id: true,
-        first_name: true,
-        last_name: true,
-        email: true,
-        avatar: true,
-        country: true,
-        city: true,
-        about_me: true,
-        created_at: true,
-        certifications: true,
-      },
-    });
+async getATeacherById(teacherId: string) {
+  const teacher = await this.prismaService.user.findFirst({
+    where: {
+      id: teacherId,
+      type: 'teacher',
+    },
+    select: {
+      id: true,
+      first_name: true,
+      last_name: true,
+      email: true,
+      type: true,
+      avatar: true,
+      country: true,
+      city: true,
+      grades_taught: true,
+      about_me: true,
+      created_at: true,
+      certifications: true,
+    },
+  });
 
-    if (!teacher) {
-      return {
-        success: false,
-        message: 'Teacher not found or user is not a teacher',
-        data: null,
-      };
-    }
-
-    const basePublicUrl = `http://localhost:${process.env.PORT || 4012}/public/storage/`;
-
-    if (teacher.avatar) {
-      teacher['avatar_url'] = `${basePublicUrl}avatar/${teacher.avatar}`;
-    }
-
-    if (
-      Array.isArray(teacher.certifications) &&
-      teacher.certifications.length > 0
-    ) {
-      teacher['certifications_urls'] = teacher.certifications.map(
-        (cert) => `${basePublicUrl}certificate/${cert}`,
-      );
-    }
-
+  if (!teacher) {
     return {
-      success: true,
-      message: 'Teacher fetched successfully',
-      data: teacher,
+      success: false,
+      message: 'Teacher not found or user is not a teacher',
+      data: null,
     };
   }
+
+  // Fetch all completed sessions
+  const sessions = await this.prismaService.create_Session.findMany({
+    where: { user_id: teacherId, is_completed: 1 },
+    select: { session_charge: true },
+  });
+
+  // Count total sessions
+  const totalSessions = sessions.length;
+
+  // Convert each session_charge (string) to number and sum
+  const totalEarnings = sessions.reduce((sum, s) => {
+    const charge = parseFloat(s.session_charge || '0');
+    return sum + (isNaN(charge) ? 0 : charge);
+  }, 0);
+
+  // Build URLs
+
+
+  if (teacher.avatar) {
+    teacher['avatar_url'] = `avatar/${teacher.avatar}`;
+  }
+
+  if (Array.isArray(teacher.certifications) && teacher.certifications.length > 0) {
+    teacher['certifications_urls'] = teacher.certifications.map(
+      (cert) => `certificate/${cert}`,
+    );
+  }
+
+  return {
+    success: true,
+    message: 'Teacher fetched successfully',
+    data: {
+      ...teacher,
+      totalSessions,
+      totalEarnings,
+    },
+  };
+}
+
 
 
   //uploading meterials 
@@ -697,8 +828,6 @@ export class TeacherService {
       };
     }
   }
-
-
   async getAllMaterialsWithSession(userId: string) {
     const creator = await this.prismaService.user.findUnique({
       where: { id: userId, type: "teacher" },
@@ -730,7 +859,6 @@ export class TeacherService {
       creator
     }
   }
-
   async getMaterialsForSession(sessionId: string) {
     const session = await this.prismaService.create_Session.findUnique({
       where: { id: sessionId },
@@ -765,7 +893,6 @@ export class TeacherService {
       };
     }
   }
-
   async deleteMaterialFromSession(sessionId: string, materialFileName: string, userId: string) {
     try {
       const session = await this.prismaService.create_Session.findUnique({
@@ -817,6 +944,53 @@ export class TeacherService {
         success: false,
         message: 'An unexpected error occurred',
       };
+    }
+  }
+
+
+  //recent reviews from students
+  async getRecentReviewsForTeacher(teacherId: string) {
+    const reviews = await this.prismaService.rate_Session.findMany({
+      where: {
+        create_session: {
+          user_id: teacherId,
+        },
+      },
+      orderBy: {
+        created_at: 'desc',
+      },
+      select: {
+        id: true,
+        rating: true,
+        comment: true,
+        created_at: true,
+        user: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            avatar: true,
+          },
+        },
+      },
+      take: 5,
+    });
+
+    const formatReviews = reviews.map((review) => {
+      const basePublicUrl = `http://localhost:${process.env.PORT || 4012}/public/storage/`;
+      return {
+        ...review,
+        user: {
+          ...review.user,
+          avatar: review.user.avatar ? `${basePublicUrl}avatar/${review.user.avatar}` : null,
+        },
+      };
+    });
+
+    return {
+      success: true,
+      message: 'Recent reviews fetched successfully',
+      data: formatReviews,
     }
   }
 

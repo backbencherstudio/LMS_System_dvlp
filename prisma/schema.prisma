@@ -81,6 +81,7 @@ model User {
   general_availability         String?             @db.Text
   certifications               String[]             @db.Text
   is_agreed_terms              Int?                @default(0)
+  grades_taught                String[]
   is_verified                  Int?                @default(0)
   is_agree_application_process Int?                @default(0)
   is_accepted                  String?             @default("pending")

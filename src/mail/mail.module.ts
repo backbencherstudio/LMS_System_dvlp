@@ -35,7 +35,7 @@ import { MailProcessor } from './processors/mail.processor';
       },
     }),
     BullModule.registerQueue({
-      name: 'mail-queue',
+      name: 'mail-queue1',
     }),
   ],
   providers: [MailService, MailProcessor],

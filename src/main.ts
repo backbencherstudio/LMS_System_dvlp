@@ -47,6 +47,7 @@ async function bootstrap() {
             "'self'",
             'https://techterms.com',
             'https://tse3.mm.bing.net',
+            'https://i.pinimg.com',
             'data:',
           ],
         },

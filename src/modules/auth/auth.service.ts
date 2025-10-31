@@ -78,6 +78,7 @@ export class AuthService {
       grade_level: data.grade_level,
       highest_education_level: data.highest_education_level,
       teching_experience: data.teching_experience,
+      grades_taught: data.grades_taught,
       subjects_taught: data.subjects_taught,
       hourly_rate: data.hourly_rate,
       general_availability: data.general_availability,
@@ -140,6 +141,14 @@ export class AuthService {
           HttpStatus.BAD_REQUEST,
         );
       }
+      if (!data.grades_taught || data.grades_taught.length === 0) {
+        throw new HttpException(
+          'required field is missing',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+
       if (!data.highest_education_level) {
         throw new HttpException(
           'required field is missing',
@@ -414,11 +423,13 @@ export class AuthService {
           type: true,
           gender: true,
           date_of_birth: true,
+          grades_taught: true,
           created_at: true,
           certifications: true,
         },
       });
 
+      
       if (!user) {
         return {
           success: false,
@@ -428,6 +439,7 @@ export class AuthService {
 
       if (user.type === 'student') {
         user.certifications = [];
+        user.grades_taught = [];
       }
 
       const basePublicUrl = `http://localhost:${process.env.PORT || 5000}/public/storage/`;
@@ -442,6 +454,8 @@ export class AuthService {
           );
         }
       }
+
+    
 
       if (user.avatar) {
         user['avatar_url'] = SojebStorage.url(

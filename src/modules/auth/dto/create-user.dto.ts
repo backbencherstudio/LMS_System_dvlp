@@ -69,6 +69,18 @@ export class CreateUserDto {
 
   @ValidateIf(isTeacher)
   @IsNotEmpty()
+  @Transform(({ value }) => {
+    if (Array.isArray(value)) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      return value.split(',').map((item) => item.trim());
+    }
+  })
+  grades_taught?: string[];
+
+  @ValidateIf(isTeacher)
+  @IsNotEmpty()
   teching_experience?: string;
 
   @ValidateIf(isTeacher)

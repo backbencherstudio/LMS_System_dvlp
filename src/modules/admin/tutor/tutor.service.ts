@@ -97,6 +97,14 @@ export class TutorService {
         select: {
           id: true,
           type: true,
+          name: true,
+          email: true,
+          hourly_rate: true,
+          subjects_taught: true,
+          is_accepted: true,
+          country: true,
+          city: true,
+          certifications: true,
         },
       });
 

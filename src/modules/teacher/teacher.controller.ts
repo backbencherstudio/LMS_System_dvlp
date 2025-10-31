@@ -76,6 +76,12 @@ export class TeacherController {
                 return this.teacherService.getAllMaterialsWithSession(userId)
         }
 
+     //   @UseGuards(JwtAuthGuard)
+        @Get('my-reviews/:id')
+        getMyReviews(@Param('id') id: string) {
+                return this.teacherService.getRecentReviewsForTeacher(id);
+        }
+
         @Get('my-sessions/:id')
         mySessionsForStudents(
                 @Param('id') id: string

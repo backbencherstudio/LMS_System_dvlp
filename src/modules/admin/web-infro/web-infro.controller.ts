@@ -22,7 +22,7 @@ import { CreateTeamInfoDto } from './dto/create-team-info.dto';
 
 @Controller('web-infro')
 export class WebInfroController {
-  constructor(private readonly webInfroService: WebInfroService) {}
+  constructor(private readonly webInfroService: WebInfroService) { }
 
   @ApiOperation({ summary: 'Create a blog' })
   @ApiBearerAuth()
@@ -112,4 +112,28 @@ export class WebInfroController {
     }
     return this.webInfroService.GetAllWebBlogs(userId);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('remove/:id')
+  async remove(@Param('id') id: string, @Req() req: any) {
+    try {
+      const userId = req.user?.userId;
+
+      if (!userId) {
+        return {
+          success: false,
+          message: 'User ID is missing or not authenticated',
+        };
+      }
+
+      const websiteInfo = await this.webInfroService.remove(id, userId);
+      return websiteInfo;
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
+
 }

@@ -8,6 +8,7 @@ import {
   UploadedFiles,
   UseGuards,
   Req,
+  Param,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { memoryStorage } from 'multer';

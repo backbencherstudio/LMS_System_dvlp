@@ -9,7 +9,7 @@ import { CreateTeamInfoDto } from './dto/create-team-info.dto';
 
 @Injectable()
 export class WebInfroService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async createAblog(
     createWebInfroDto: CreateWebInfroDto,
@@ -161,4 +161,100 @@ export class WebInfroService {
       },
     };
   }
+
+
+  //  async remove(id: string, userID: string) {
+  //   try {
+  //     if (!userID) {
+  //       throw new Error("User ID is missing.");
+  //     }
+
+  //     const admin = await this.prisma.user.findUnique({
+  //       where: { id: userID, type: 'admin' },
+  //     });
+
+  //     if (!admin) {
+  //       return {
+  //         success: false,
+  //         message: 'Sorry, only admins can remove website info.',
+  //       };
+  //     }
+
+  //     const blog = await this.prisma.blog.findUnique({
+  //       where: { id },
+  //     });
+
+  //     if (blog) {
+  //       await this.prisma.blog.delete({
+  //         where: { id },
+  //       });
+  //       return {
+  //         success: true,
+  //         message: `Blog with ID ${id} removed successfully.`,
+  //       };
+  //     }
+
+  //     const team = await this.prisma.teamMember.findUnique({
+  //       where: { id },
+  //     });
+
+  //     if (!team) {
+  //       return {
+  //         success: false,
+  //         message: 'Request item not found, neither a blog nor a team member.',
+  //       };
+  //     }
+
+  //     await this.prisma.teamMember.delete({
+  //       where: { id },
+  //     });
+
+  //     return {
+  //       success: true,
+  //       message: `Team member with ID ${id} removed successfully.`,
+  //     };
+
+  //   } catch (error) {
+  //     console.error('Error during removal:', error);
+  //     return {
+  //       success: false,
+  //       message: error.message,
+  //     };
+  //   }
+  // }
+
+  async remove(id: string, userID: string) {
+    try {
+      if (!userID) throw new Error("User ID is missing.");
+
+      const admin = await this.prisma.user.findUnique({
+        where: { id: userID, type: 'admin' },
+      });
+
+      if (!admin)
+        return {
+          success: false,
+          message: 'Sorry, only admins can remove website info.',
+        };
+
+      const blog = await this.prisma.blog.findUnique({ where: { id } });
+      const team = blog ? null : await this.prisma.teamMember.findUnique({ where: { id } });
+
+      return blog
+        ? (await this.prisma.blog.delete({ where: { id } }),
+          { success: true, message: `Blog with ID ${id} removed successfully.` })
+        : team
+          ? (await this.prisma.teamMember.delete({ where: { id } }),
+            { success: true, message: `Team member with ID ${id} removed successfully.` })
+          : {
+            success: false,
+            message: 'Request item not found, neither a blog nor a team member.',
+          };
+
+    } catch (error: any) {
+      console.error('Error during removal:', error);
+      return { success: false, message: error.message };
+    }
+  }
+
 }

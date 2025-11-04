@@ -487,7 +487,7 @@ model Create_Session {
   deleted_at DateTime?
 
   user_id                       String?
-  user                          User?          @relation(fields: [user_id], references: [id])
+  user                          User?          @relation(fields: [user_id], references: [id], onDelete: Cascade)
   slots_available               String?
   session_type                  String?
   subject                       String?
@@ -644,7 +644,7 @@ model Blog {
   deleted_at DateTime?
 
   user_id String?
-  user    User?   @relation(fields: [user_id], references: [id])
+  user    User?   @relation(fields: [user_id], references: [id], onDelete: Cascade)
   title       String?
   description String? @db.Text
   image       String?

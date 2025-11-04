@@ -27,9 +27,15 @@ export class StudentService {
         user: {
           select: {
             id: true,
+            name: true,
             email: true,
             address: true,
             grade_level: true,
+            Book_Sessions: {
+              select: {
+                id: true
+              }
+            }
           },
         },
       },
@@ -39,6 +45,11 @@ export class StudentService {
       where: { type: 'student' },
       select: {
         id: true,
+        name: true,
+        email: true,
+        grade_level: true,
+        address: true,
+        status: true,
         Book_Sessions: {
           select: {
             id: true
@@ -52,22 +63,12 @@ export class StudentService {
         const total = await this.prisma.book_Session.count({
           where: { user_id: session.user.id },
         });
-
-        return {
-          id: session.id,
-          username: session.username,
-          email: session.user.email,
-          grade_level: session.user.grade_level,
-          totalSessions: total,
-          status: session.status,
-          address: session.user.address,
-        };
       }),
     );
 
     return {
       success: true,
-      data: studentsInfo,
+      data: studentsInfo, totalData
     };
   }
   async getOneStudent(id: string) {
@@ -131,6 +132,7 @@ export class StudentService {
       where: { id: restrictedId },
       data: {
         is_restricted: 1,
+        status: 0,
         restriction_period: restriction_period,
         restriction_reason: restriction_reason,
       },

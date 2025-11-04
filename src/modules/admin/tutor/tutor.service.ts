@@ -26,6 +26,7 @@ export class TutorService {
     const sessions = await this.prismaService.create_Session.findMany({
       select: {
         id: true,
+        user_id: true,
         subject: true,
         user: {
           select: {
@@ -39,7 +40,8 @@ export class TutorService {
     });
 
     const formatted = sessions.map((s) => ({
-      SESSION_ID: s.id,
+    //  SESSION_ID: s.id,
+      User_Id: s.user_id,
       NAME: s.user?.name,
       SUBJECT: s.subject,
       HOURLY_RATE: s.user?.hourly_rate,
@@ -251,6 +253,7 @@ export class TutorService {
 
       return {
         success: true,
+        status: 400,
         message: 'Tutor application rejected',
       };
     } catch (error) {

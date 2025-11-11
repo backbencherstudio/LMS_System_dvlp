@@ -27,6 +27,28 @@ export class StudentController {
   constructor(private readonly studentService: StudentService) { }
 
 
+  @Get('all-students')
+  getAllStudents(@Req() req: any) {
+      const type = req.user.type;
+    try {
+      if (type !== 'admin') {
+        return {
+          success: false,
+          message: 'unauthorized',
+        };
+      } else {
+        return this.studentService.getAllstudetnds(type);
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: 'An error occurred while deleting the user.',
+        error: error.message,
+      };
+    }
+  }
+
+
   @Get('book-sessions')
   findAll(@Req() req: any) {
     const type = req.user.type;
@@ -47,8 +69,6 @@ export class StudentController {
       };
     }
   }
-
-
   @Get('restricted-users')
   getRestrictedUsers(@Req() req: any) {
     const type = req.user.type;
@@ -70,15 +90,11 @@ export class StudentController {
       };
     }
   }
-
   @Get('student/:id')
   getOneStudent(@Param('id') id: string) {
     return this.studentService.getOneStudent(id);
 
   }
-
-
-
   @Patch('restricted-user/:restrictedId')
   restrictedUserAccess(
     @Param('restrictedId') restrictedId: string,
@@ -108,8 +124,6 @@ export class StudentController {
       };
     }
   }
-
-
   @Patch('unrestrict-user/:userId')
   unrestrictUser(@Param('userId') userId: string, @Req() req: any) {
     const type = req.user.type;
@@ -131,8 +145,6 @@ export class StudentController {
     }
 
   }
-
-
   @Delete(':id')
   remove(@Param('id') userId: string, @Req() req: any) {
     const type = req.user.type;

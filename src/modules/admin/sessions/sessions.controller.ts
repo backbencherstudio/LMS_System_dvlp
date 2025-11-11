@@ -11,9 +11,6 @@ import { use } from 'passport';
 @Controller('sessions')
 export class SessionsController {
   constructor(private readonly sessionsService: SessionsService) { }
-
-
-
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Get('all-sessions')
   getAllSessions(
@@ -79,4 +76,25 @@ export class SessionsController {
     }
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Delete('delete/:id')
+  removeSession(@Param('id') id: string, @Req() req: any) {
+    try {
+      const userType = req.user.type;
+      if (userType !== "admin") {
+        return {
+          success: false,
+          message: "unauthorized"
+        }
+      } else {
+        return this.sessionsService.deleteSession(id);
+      }
+
+    } catch (error) {
+      return {
+        statusCode: 500,
+        success: false,
+      }
+    }
+  }
 }

@@ -211,7 +211,6 @@ export class TutorService {
       };
     } catch (error) {}
   }
-
   async rejectTutorApplication(id: string) {
     try {
       const tutor = await this.prismaService.user.findUnique({

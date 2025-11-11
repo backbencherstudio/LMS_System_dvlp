@@ -175,4 +175,32 @@ export class SessionsService {
       };
     }
   }
+  async deleteSession(id: string) {
+    try {
+      const session = await this.prisma.create_Session.findUnique({
+        where: { id },
+      });
+      if (!session) {
+        return {
+          success: false,
+          message: 'Session not found.',
+        };
+      }
+      await this.prisma.create_Session.delete({
+        where: { id },
+      });
+      return {
+        success: true,
+        message: 'Session deleted successfully.',
+      };
+    } catch (error) {
+      console.error('Error deleting session:', error);
+      return {
+        statusCode: 500,
+        success: false,
+        message: 'An error occurred while deleting the session.',
+        error: error.message,
+      };
+    }
+  }
 }

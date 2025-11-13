@@ -4,6 +4,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { SojebStorage } from '../../../common/lib/Disk/SojebStorage';
 import appConfig from '../../../config/app.config';
 import { StringHelper } from '../../../common/helper/string.helper';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class WebsiteInfoService {
@@ -152,6 +153,193 @@ export class WebsiteInfoService {
       return {
         success: false,
         message: error.message,
+      };
+    }
+  }
+
+  //dashboard top view
+  async findDashboardCounts(startDateString?: string) {
+    try {
+      const today = new Date();
+      today.setHours(23, 59, 59, 999);
+
+      let startDate: Date;
+      if (startDateString) {
+        startDate = new Date(startDateString);
+        if (isNaN(startDate.getTime())) {
+          return {
+            success: false,
+            message: 'Invalid start date format. Please use YYYY-MM-DD.',
+          };
+        }
+        startDate.setHours(0, 0, 0, 0);
+      } else {
+        startDate = new Date();
+        startDate.setHours(0, 0, 0, 0);
+      }
+
+      const userCountsPromise = this.prisma.user.groupBy({
+        by: ['type'],
+        _count: {
+          id: true,
+        },
+        where: {
+          type: {
+            in: ['teacher', 'student'],
+          },
+        },
+      });
+
+      const sessionCountPromise = this.prisma.create_Session.count({
+        where: {
+          created_at: {
+            gte: startDate,
+            lte: today,
+          },
+        },
+      });
+
+      const totalEarningsPromise = this.prisma.paymentTransaction.aggregate({
+        _sum: {
+          paid_amount: true,
+        },
+        where: {
+          status: 'succeeded',
+        },
+      });
+
+      const [userCountsByType, sessionCount, totalEarningsResult] =
+        await Promise.all([
+          userCountsPromise,
+          sessionCountPromise,
+          totalEarningsPromise,
+        ]);
+
+      const formattedUserCounts = {
+        teachers: 0,
+        students: 0,
+      };
+      for (const group of userCountsByType) {
+        if (group.type === 'teacher') {
+          formattedUserCounts.teachers = group._count.id;
+        } else if (group.type === 'student') {
+          formattedUserCounts.students = group._count.id;
+        }
+      }
+
+      const totalEarnings = Number(totalEarningsResult._sum.paid_amount ?? 0);
+
+      const responseData = {
+        userCounts: formattedUserCounts,
+        count: sessionCount,
+        totalEarnings: totalEarnings,
+      };
+
+      return {
+        success: true,
+        data: responseData,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Error fetching dashboard counts: ${error.message}`,
+      };
+    }
+  }
+
+  // Get All payment states
+  async findPaymentStates() {
+    try {
+      const oneMonthAgo = new Date();
+      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+
+      const queries = [
+        //Calculate Total Revenue from all successful non-payout transactions.
+        this.prisma.paymentTransaction.aggregate({
+          _sum: {
+            paid_amount: true,
+          },
+          where: {
+            raw_status: 'succeeded',
+            type: {
+              not: 'payout',
+            },
+          },
+        }),
+
+        // Calculate Last Month's Revenue.
+        this.prisma.paymentTransaction.aggregate({
+          _sum: {
+            paid_amount: true,
+          },
+          where: {
+            status: 'succeeded',
+            raw_status: {
+              not: 'succeeded',
+            },
+            created_at: {
+              gte: oneMonthAgo,
+            },
+          },
+        }),
+
+        //Calculate Total Payouts from all successful payout transactions.
+        this.prisma.paymentTransaction.aggregate({
+          _sum: {
+            amount: true,
+          },
+          where: {
+            status: 'succeeded',
+            raw_status: 'succeeded',
+          },
+        }),
+
+        // Calculate Last Month's Payouts.
+        this.prisma.paymentTransaction.aggregate({
+          _sum: {
+            amount: true,
+          },
+          where: {
+            status: 'succeeded',
+            raw_status: 'succeeded',
+            created_at: {
+              gte: oneMonthAgo,
+            },
+          },
+        }),
+      ];
+
+      const [
+        totalRevenueResult,
+        lastMonthRevenueResult,
+        totalPayoutsResult,
+        lastMonthPayoutsResult,
+      ] = await this.prisma.$transaction(queries);
+
+      const getSum = (
+        result: { _sum: { [key: string]: Prisma.Decimal | null } },
+        key: string,
+      ): number => {
+        const decimalValue = result._sum[key];
+        return decimalValue ? decimalValue.toNumber() : 0;
+      };
+
+      const responseData = {
+        totalRevenue: getSum(totalRevenueResult as any, 'paid_amount'),
+        lastMonthRevenue: getSum(lastMonthRevenueResult as any, 'paid_amount'),
+        totalPayouts: getSum(totalPayoutsResult as any, 'amount'),
+        lastMonthPayouts: getSum(lastMonthPayoutsResult as any, 'amount'),
+      };
+
+      return {
+        success: true,
+        message: 'Payment statistics retrieved successfully.',
+        data: responseData,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Error fetching payment states: ${error.message}`,
       };
     }
   }

@@ -22,7 +22,7 @@ export class TeacherService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly messageGatway: MessageGateway,
-  ) { }
+  ) {}
 
   // session creating
   async create(createSessionDto: CreateSessionDto) {
@@ -133,6 +133,7 @@ export class TeacherService {
 
       // ended notification
       return {
+        success: true,
         message: 'Session successfully created',
         session_type: session.session_type,
         subject: session.subject,
@@ -326,12 +327,22 @@ export class TeacherService {
     }
 
     const teachers = teacherIds.map((teacher) => {
-      const { first_name, last_name, avatar, about_me, country, email, city, Rate_Session, Create_Session } = teacher;
+      const {
+        first_name,
+        last_name,
+        avatar,
+        about_me,
+        country,
+        email,
+        city,
+        Rate_Session,
+        Create_Session,
+      } = teacher;
 
       //  per-user price range
-      const charges = Create_Session
-        .map(({ session_charge }) => Number(session_charge))
-        .filter((charge) => !isNaN(charge) && charge !== null);
+      const charges = Create_Session.map(({ session_charge }) =>
+        Number(session_charge),
+      ).filter((charge) => !isNaN(charge) && charge !== null);
 
       let priceRange = 'N/A';
       if (charges.length > 0) {
@@ -342,7 +353,9 @@ export class TeacherService {
       }
 
       const rates = Rate_Session.map(({ rating }) => rating);
-      const avgRate = rates.length ? (rates.reduce((a, b) => a + b, 0) / rates.length) : 0;
+      const avgRate = rates.length
+        ? rates.reduce((a, b) => a + b, 0) / rates.length
+        : 0;
 
       const modes = [...new Set(Create_Session.map(({ mode }) => mode))];
       const availability = Create_Session.flatMap(
@@ -474,18 +487,12 @@ export class TeacherService {
         },
       });
 
-
-
     if (!checkTeacher) {
       throw new NotFoundException('Teacher not found or user is not a teacher');
     } else {
       return allreqForATeacher;
-
-
     }
   }
-
-
 
   async handleRequest(
     requestId: string,
@@ -679,82 +686,82 @@ export class TeacherService {
       },
     });
   }
-async getATeacherById(teacherId: string) {
-  const teacher = await this.prismaService.user.findFirst({
-    where: {
-      id: teacherId,
-      type: 'teacher',
-    },
-    select: {
-      id: true,
-      first_name: true,
-      last_name: true,
-      email: true,
-      type: true,
-      avatar: true,
-      country: true,
-      city: true,
-      grades_taught: true,
-      about_me: true,
-      created_at: true,
-      certifications: true,
-    },
-  });
+  async getATeacherById(teacherId: string) {
+    const teacher = await this.prismaService.user.findFirst({
+      where: {
+        id: teacherId,
+        type: 'teacher',
+      },
+      select: {
+        id: true,
+        first_name: true,
+        last_name: true,
+        email: true,
+        type: true,
+        avatar: true,
+        country: true,
+        city: true,
+        grades_taught: true,
+        about_me: true,
+        created_at: true,
+        certifications: true,
+      },
+    });
 
-  if (!teacher) {
+    if (!teacher) {
+      return {
+        success: false,
+        message: 'Teacher not found or user is not a teacher',
+        data: null,
+      };
+    }
+
+    // Fetch all completed sessions
+    const sessions = await this.prismaService.create_Session.findMany({
+      where: { user_id: teacherId, is_completed: 1 },
+      select: { session_charge: true },
+    });
+
+    // Count total sessions
+    const totalSessions = sessions.length;
+
+    // Convert each session_charge (string) to number and sum
+    const totalEarnings = sessions.reduce((sum, s) => {
+      const charge = parseFloat(s.session_charge || '0');
+      return sum + (isNaN(charge) ? 0 : charge);
+    }, 0);
+
+    // Build URLs
+
+    if (teacher.avatar) {
+      teacher['avatar_url'] = `avatar/${teacher.avatar}`;
+    }
+
+    if (
+      Array.isArray(teacher.certifications) &&
+      teacher.certifications.length > 0
+    ) {
+      teacher['certifications_urls'] = teacher.certifications.map(
+        (cert) => `certificate/${cert}`,
+      );
+    }
+
     return {
-      success: false,
-      message: 'Teacher not found or user is not a teacher',
-      data: null,
+      success: true,
+      message: 'Teacher fetched successfully',
+      data: {
+        ...teacher,
+        totalSessions,
+        totalEarnings,
+      },
     };
   }
 
-  // Fetch all completed sessions
-  const sessions = await this.prismaService.create_Session.findMany({
-    where: { user_id: teacherId, is_completed: 1 },
-    select: { session_charge: true },
-  });
-
-  // Count total sessions
-  const totalSessions = sessions.length;
-
-  // Convert each session_charge (string) to number and sum
-  const totalEarnings = sessions.reduce((sum, s) => {
-    const charge = parseFloat(s.session_charge || '0');
-    return sum + (isNaN(charge) ? 0 : charge);
-  }, 0);
-
-  // Build URLs
-
-
-  if (teacher.avatar) {
-    teacher['avatar_url'] = `avatar/${teacher.avatar}`;
-  }
-
-  if (Array.isArray(teacher.certifications) && teacher.certifications.length > 0) {
-    teacher['certifications_urls'] = teacher.certifications.map(
-      (cert) => `certificate/${cert}`,
-    );
-  }
-
-  return {
-    success: true,
-    message: 'Teacher fetched successfully',
-    data: {
-      ...teacher,
-      totalSessions,
-      totalEarnings,
-    },
-  };
-}
-
-
-
-  //uploading meterials 
+  //uploading meterials
   async uploadMaterials(
     userID: string,
     sessionId: string,
-    files: Express.Multer.File[]
+    files: Express.Multer.File[],
   ) {
     try {
       const fileNames: string[] = [];
@@ -773,10 +780,15 @@ async getATeacherById(teacherId: string) {
         },
       });
 
-      if (!userSessionData || userSessionData.Create_Session.length === 0 || userSessionData.Create_Session[0].user_id !== userId) {
+      if (
+        !userSessionData ||
+        userSessionData.Create_Session.length === 0 ||
+        userSessionData.Create_Session[0].user_id !== userId
+      ) {
         return {
           success: false,
-          message: 'Session ID or User ID mismatch. You cannot upload materials for this session.',
+          message:
+            'Session ID or User ID mismatch. You cannot upload materials for this session.',
         };
       }
 
@@ -786,7 +798,7 @@ async getATeacherById(teacherId: string) {
 
           await SojebStorage.put(
             appConfig().storageUrl.material + '/' + fileName,
-            file.buffer
+            file.buffer,
           );
 
           fileNames.push(fileName);
@@ -801,9 +813,12 @@ async getATeacherById(teacherId: string) {
 
         const basePublicUrl = `http://localhost:${process.env.PORT || 4012}/public/storage/`;
 
-        if (Array.isArray(updatedSession.pdf_attachment) && updatedSession.pdf_attachment.length > 0) {
-          updatedSession['materials_urls'] = updatedSession.pdf_attachment.map(material =>
-            `${basePublicUrl}material/${material}`
+        if (
+          Array.isArray(updatedSession.pdf_attachment) &&
+          updatedSession.pdf_attachment.length > 0
+        ) {
+          updatedSession['materials_urls'] = updatedSession.pdf_attachment.map(
+            (material) => `${basePublicUrl}material/${material}`,
           );
         }
 
@@ -811,8 +826,8 @@ async getATeacherById(teacherId: string) {
           success: true,
           message: 'Files uploaded and saved successfully',
           fileNames,
-          materials_urls: updatedSession.pdf_attachment.map(material =>
-            `${basePublicUrl}material/${material}`
+          materials_urls: updatedSession.pdf_attachment.map(
+            (material) => `${basePublicUrl}material/${material}`,
           ),
         };
       } else {
@@ -830,7 +845,7 @@ async getATeacherById(teacherId: string) {
   }
   async getAllMaterialsWithSession(userId: string) {
     const creator = await this.prismaService.user.findUnique({
-      where: { id: userId, type: "teacher" },
+      where: { id: userId, type: 'teacher' },
       select: {
         name: true,
         Create_Session: {
@@ -840,24 +855,21 @@ async getATeacherById(teacherId: string) {
             user_id: true,
             session_type: true,
             pdf_attachment: true,
-          }
+          },
         },
         Book_Sessions: {
           select: {
             user_id: true,
             is_completed: true,
             updated_at: true,
-          }
-        }
-
-      }
-
-    })
-
+          },
+        },
+      },
+    });
 
     return {
-      creator
-    }
+      creator,
+    };
   }
   async getMaterialsForSession(sessionId: string) {
     const session = await this.prismaService.create_Session.findUnique({
@@ -875,9 +887,12 @@ async getATeacherById(teacherId: string) {
     }
     const basePublicUrl = `http://localhost:${process.env.PORT || 4012}/public/storage/`;
 
-    if (Array.isArray(session.pdf_attachment) && session.pdf_attachment.length > 0) {
-      const materials_urls = session.pdf_attachment.map(material =>
-        `${basePublicUrl}material/${material}`
+    if (
+      Array.isArray(session.pdf_attachment) &&
+      session.pdf_attachment.length > 0
+    ) {
+      const materials_urls = session.pdf_attachment.map(
+        (material) => `${basePublicUrl}material/${material}`,
       );
 
       return {
@@ -893,7 +908,11 @@ async getATeacherById(teacherId: string) {
       };
     }
   }
-  async deleteMaterialFromSession(sessionId: string, materialFileName: string, userId: string) {
+  async deleteMaterialFromSession(
+    sessionId: string,
+    materialFileName: string,
+    userId: string,
+  ) {
     try {
       const session = await this.prismaService.create_Session.findUnique({
         where: { id: sessionId, user_id: userId },
@@ -924,7 +943,7 @@ async getATeacherById(teacherId: string) {
       }
 
       const updatedMaterials = session.pdf_attachment.filter(
-        (material) => material !== materialFileName
+        (material) => material !== materialFileName,
       );
 
       const updatedSession = await this.prismaService.create_Session.update({
@@ -946,7 +965,6 @@ async getATeacherById(teacherId: string) {
       };
     }
   }
-
 
   //recent reviews from students
   async getRecentReviewsForTeacher(teacherId: string) {
@@ -982,7 +1000,9 @@ async getATeacherById(teacherId: string) {
         ...review,
         user: {
           ...review.user,
-          avatar: review.user.avatar ? `${basePublicUrl}avatar/${review.user.avatar}` : null,
+          avatar: review.user.avatar
+            ? `${basePublicUrl}avatar/${review.user.avatar}`
+            : null,
         },
       };
     });
@@ -991,8 +1011,6 @@ async getATeacherById(teacherId: string) {
       success: true,
       message: 'Recent reviews fetched successfully',
       data: formatReviews,
-    }
+    };
   }
-
-
 }

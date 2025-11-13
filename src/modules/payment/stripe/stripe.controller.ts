@@ -8,13 +8,15 @@ import {
   HttpException,
   HttpStatus,
   Logger,
+  NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
 import { StripeService } from './stripe.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { StripePayment } from 'src/common/lib/Payment/stripe/StripePayment';
-import { TransactionRepository } from '../../../common/repository/transaction/transaction.repository';
+import { CreateStripeDto } from './dto/create-stripe.dto';
 
 @Controller('payment/stripe')
 export class StripeController {
@@ -28,80 +30,107 @@ export class StripeController {
   @Post('pay')
   @UseGuards(JwtAuthGuard)
   async pay(
-    @Body() body: { amount?: number; currency?: string; payment_method: string },
+    @Body() body: CreateStripeDto,
     @Req() req: Request & { user: { userId: string } },
   ) {
-    try {
-      const userId = req.user?.userId;
+    const userId = req.user?.userId;
+    console.log(userId), console.log(body.bookingId);
+    console.log(body.sessionId);
+    if (!userId) {
+      throw new HttpException(
+        'User not authenticated',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
 
-      if (!userId) {
-        throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
-      }
+    const booking = await this.prisma.book_Session.findUnique({
+      where: {
+        id: body.bookingId,
+        user_id: userId,
+        create_session_id: body.sessionId,
+      },
+      include: {
+        create_session: { select: { session_charge: true } },
+      },
+    });
 
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
-        select: {
-          email: true,
-          billing_id: true,
-          Book_Sessions: {
-            select: {
-              id: true,
-              payment_status: true,
-              transaction_id: true,
-              create_session: {
-                select: {
-                  id: true,
-                  user_id: true,
-                  session_charge: true,
-                },
-              },
-            },
-          },
-        },
-      });
+    if (!booking) {
+      throw new NotFoundException(
+        'Booking not found or you do not have permission to pay for it.',
+      );
+    }
 
-      if (!user || !user.Book_Sessions || user.Book_Sessions.length === 0) {
-        throw new HttpException('No sessions found for user', HttpStatus.BAD_REQUEST);
-      }
+    if (booking.payment_status === 'paid') {
+      throw new BadRequestException('This session has already been paid for.');
+    }
 
-      // Find the first unpaid session
-      const session = user.Book_Sessions.find(s => s.payment_status !== 'paid');
-      if (!session) {
-        throw new HttpException('No unpaid session found', HttpStatus.BAD_REQUEST);
-      }
+    const amount = Number(booking.create_session?.session_charge);
+    if (isNaN(amount) || amount <= 0) {
+      throw new BadRequestException('Invalid session charge amount.');
+    }
 
-      const amount = Number(session.create_session?.session_charge || body.amount);
-      if (isNaN(amount) || amount <= 0) {
-        throw new HttpException('Invalid session charge', HttpStatus.BAD_REQUEST);
-      }
-
-      // Create payment intent
-      const payment = await StripePayment.createPaymentIntent({
-        amount,
+    const transaction = await this.prisma.paymentTransaction.create({
+      data: {
+        user_id: userId,
+        order_id: booking.id,
+        amount: amount,
         currency: body.currency || 'usd',
-        customer_id: user.billing_id,
+        status: 'pending',
+        provider: 'stripe',
+        type: 'session_booking',
+      },
+    });
+
+    try {
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+      let customerId = user.billing_id;
+
+      if (!customerId) {
+        const customer = await StripePayment.createCustomer({
+          user_id: user.id,
+          name: user.name || 'N/A',
+          email: user.email,
+        });
+        customerId = customer.id;
+        await this.prisma.user.update({
+          where: { id: userId },
+          data: { billing_id: customerId },
+        });
+      }
+
+      const paymentIntent = await StripePayment.createPaymentIntent({
+        amount: amount,
+        currency: body.currency || 'usd',
+        customer_id: customerId,
         metadata: {
-          userId,
-          sessionId: session.id,
+          userId: userId,
+          bookingId: booking.id,
+          transactionId: transaction.id,
         },
       });
 
-      this.logger.log(`PaymentIntent Created: ${payment.client_secret}`);
-      this.logger.debug(`Metadata: ${JSON.stringify(payment.metadata)}`);
+      await this.prisma.paymentTransaction.update({
+        where: { id: transaction.id },
+        data: { reference_number: paymentIntent.id },
+      });
 
+      this.logger.log(`PaymentIntent created for booking: ${booking.id}`);
       return {
-        clientSecret: payment.client_secret,
-        msg: 'PaymentIntent created successfully',
-        amount: payment.amount,
+        clientSecret: paymentIntent.client_secret,
+        message:
+          'PaymentIntent created successfully. Please complete the payment.',
       };
     } catch (error) {
-      this.logger.error('Error creating PaymentIntent', error.stack);
+      await this.prisma.paymentTransaction.update({
+        where: { id: transaction.id },
+        data: { status: 'failed', raw_status: error.message },
+      });
+      this.logger.error(
+        `Failed to create PaymentIntent for booking ${body.bookingId}:`,
+        error.stack,
+      );
       throw new HttpException(
-        {
-          statusCode: 500,
-          message: 'Error creating payment',
-          error: error.message,
-        },
+        'Failed to create payment intent.',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -113,86 +142,59 @@ export class StripeController {
     @Req() req: Request & { rawBody: Buffer },
   ) {
     try {
-      const payload = req.rawBody.toString();
+      const event = await this.stripeService.handleWebhook(
+        req.rawBody,
+        signature,
+      );
+      const paymentIntent = event.data.object as any;
+      const { bookingId, transactionId } = paymentIntent.metadata;
 
-      const event = await this.stripeService.handleWebhook(payload, signature);
-
-      switch (event.type) {
-        case 'payment_intent.succeeded': {
-          const paymentIntent = event.data.object;
-
-          await this.prisma.book_Session.update({
-            where: { id: paymentIntent.metadata['sessionId'] },
-            data: { payment_status: 'paid' },
-          });
-
-          await TransactionRepository.updateTransaction({
-            reference_number: paymentIntent.id,
-            status: 'succeeded',
-            paid_amount: paymentIntent.amount / 100,
-            paid_currency: paymentIntent.currency,
-            raw_status: paymentIntent.status,
-          });
-
-          break;
-        }
-
-        case 'payment_intent.payment_failed': {
-          const failedPaymentIntent = event.data.object;
-
-          await TransactionRepository.updateTransaction({
-            reference_number: failedPaymentIntent.id,
-            status: 'failed',
-            raw_status: failedPaymentIntent.status,
-          });
-
-          break;
-        }
-
-        case 'payment_intent.canceled': {
-          const canceledPaymentIntent = event.data.object;
-
-          await TransactionRepository.updateTransaction({
-            reference_number: canceledPaymentIntent.id,
-            status: 'canceled',
-            raw_status: canceledPaymentIntent.status,
-          });
-
-          break;
-        }
-
-        case 'payment_intent.requires_action': {
-          const requireActionPaymentIntent = event.data.object;
-
-          await TransactionRepository.updateTransaction({
-            reference_number: requireActionPaymentIntent.id,
-            status: 'requires_action',
-            raw_status: requireActionPaymentIntent.status,
-          });
-
-          break;
-        }
-
-        case 'payout.paid': {
-          const paidPayout = event.data.object;
-          this.logger.log(`Payout paid: ${JSON.stringify(paidPayout)}`);
-          break;
-        }
-
-        case 'payout.failed': {
-          const failedPayout = event.data.object;
-          this.logger.warn(`Payout failed: ${JSON.stringify(failedPayout)}`);
-          break;
-        }
-
-        default:
-          this.logger.warn(`Unhandled event type: ${event.type}`);
+      if (!bookingId || !transactionId) {
+        throw new BadRequestException(
+          'Missing bookingId or transactionId in webhook metadata.',
+        );
       }
 
+      switch (event.type) {
+        case 'payment_intent.succeeded':
+          await this.prisma.$transaction(async (tx) => {
+            await tx.book_Session.update({
+              where: { id: bookingId },
+              data: {
+                payment_status: 'paid',
+                transaction_id: transactionId,
+              },
+            });
+            await tx.paymentTransaction.update({
+              where: { id: transactionId },
+              data: {
+                status: 'succeeded',
+                raw_status: paymentIntent.status,
+                paid_amount: paymentIntent.amount_received / 100,
+                paid_currency: paymentIntent.currency,
+              },
+            });
+          });
+          this.logger.log(`Payment succeeded for booking: ${bookingId}`);
+          break;
+
+        case 'payment_intent.payment_failed':
+          await this.prisma.paymentTransaction.update({
+            where: { id: transactionId },
+            data: { status: 'failed', raw_status: paymentIntent.status },
+          });
+          this.logger.warn(
+            `Payment failed for booking: ${bookingId}. Reason: ${paymentIntent.last_payment_error?.message}`,
+          );
+          break;
+
+        default:
+          this.logger.log(`Unhandled Stripe event type: ${event.type}`);
+      }
       return { received: true };
     } catch (error) {
-      this.logger.error('Webhook error', error.stack);
-      return { received: false };
+      this.logger.error('Webhook processing error:', error.stack);
+      throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
     }
   }
 }

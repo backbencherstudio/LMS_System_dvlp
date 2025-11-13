@@ -141,6 +141,9 @@ export class StripePayment {
       currency: currency,
       customer: customer_id,
       metadata: metadata,
+      automatic_payment_methods: {
+        enabled: true,
+      },
     });
   }
 

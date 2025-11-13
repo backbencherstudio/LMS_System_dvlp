@@ -9,6 +9,7 @@ import {
   UseGuards,
   Req,
   Param,
+  Query,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { memoryStorage } from 'multer';
@@ -82,5 +83,29 @@ export class WebsiteInfoController {
         message: error.message,
       };
     }
+  }
+
+  @ApiOperation({
+    summary: 'Get user count group by type',
+  })
+  @Get('user-stats')
+  async findAllUserCount(@Query('startDate') startDate?: string) {
+    try {
+      const dashboardTopCoant =
+        await this.websiteInfoService.findDashboardCounts(startDate);
+      return dashboardTopCoant;
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
+
+  // Get all payment states
+  @Get('payment-states')
+  async getAllPaymentStates() {
+    const getPaymentStates = await this.websiteInfoService.findPaymentStates();
+    return getPaymentStates;
   }
 }

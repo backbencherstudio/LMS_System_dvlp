@@ -40,7 +40,7 @@ export class TutorService {
     });
 
     const formatted = sessions.map((s) => ({
-    //  SESSION_ID: s.id,
+      //  SESSION_ID: s.id,
       User_Id: s.user_id,
       NAME: s.user?.name,
       SUBJECT: s.subject,
@@ -276,5 +276,214 @@ export class TutorService {
         data: actecpteTutors,
       };
     } catch (error) {}
+  }
+
+  // Tutor states count
+  async findTutorStates() {
+    try {
+      const baseTutorFilter = {
+        type: 'teacher',
+      };
+
+      const queries = [
+        this.prismaService.user.count({
+          where: baseTutorFilter,
+        }),
+        this.prismaService.user.count({
+          where: {
+            ...baseTutorFilter,
+            is_accepted: 'pending',
+          },
+        }),
+
+        this.prismaService.user.count({
+          where: {
+            ...baseTutorFilter,
+            status: 1,
+          },
+        }),
+
+        this.prismaService.user.count({
+          where: {
+            ...baseTutorFilter,
+            is_restricted: 1,
+          },
+        }),
+      ];
+
+      const [totalTutors, newApplications, activeTutors, suspend] =
+        await this.prismaService.$transaction(queries);
+
+      const responseData = {
+        totalTutors,
+        newApplications,
+        activeTutors,
+        suspend,
+      };
+
+      return {
+        success: true,
+        message: 'Tutor dashboard data retrieved successfully.',
+        data: responseData,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Error fetching tutor dashboard data`,
+      };
+    }
+  }
+
+  async findTutorSessionStates(id: string) {
+    try {
+      const tutorExists = await this.prismaService.user.findFirst({
+        where: { id: id, type: 'teacher' },
+      });
+
+      if (!tutorExists) {
+        throw new NotFoundException(`Tutor with ID not found.`);
+      }
+
+      // ---  Manually Fetch and Calculate Revenue ---
+      const paidSessions = await this.prismaService.create_Session.findMany({
+        where: {
+          user_id: id,
+          Book_Session: {
+            some: {
+              payment_status: 'paid',
+            },
+          },
+        },
+        select: {
+          session_charge: true,
+        },
+      });
+
+      let totalRevenue = 0;
+      for (const session of paidSessions) {
+        const charge = parseFloat(session.session_charge);
+        if (!isNaN(charge)) {
+          totalRevenue += charge;
+        }
+      }
+
+      const countQueries = [
+        this.prismaService.create_Session.count({
+          where: { user_id: id },
+        }),
+
+        this.prismaService.book_Session.count({
+          where: {
+            create_session: { user_id: id },
+            status: 'pending',
+          },
+        }),
+
+        this.prismaService.create_Session.count({
+          where: { user_id: id, is_completed: 1 },
+        }),
+
+        this.prismaService.book_Session.count({
+          where: {
+            create_session: { user_id: id },
+            is_cancelled: 1,
+          },
+        }),
+      ];
+
+      const [
+        totalCreatedSessions,
+        pendingBookedSessions,
+        completedSessions,
+        cancelledBookedSessions,
+      ] = await this.prismaService.$transaction(countQueries);
+
+      const responseData = {
+        totalCreatedSessions,
+        pendingBookedSessions,
+        completedSessions,
+        cancelledBookedSessions,
+        totalRevenue,
+      };
+
+      return {
+        success: true,
+        message: `Session statistics for tutor retrieved successfully.`,
+        data: responseData,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Error fetching session states`,
+      };
+    }
+  }
+
+  async findTutorSessionInfo(id: string) {
+    try {
+      const tutorSessions = await this.prismaService.create_Session.findMany({
+        where: {
+          user_id: id,
+        },
+        select: {
+          id: true,
+          subject: true,
+          created_at: true,
+          status: true,
+
+          user: {
+            select: {
+              name: true,
+              hourly_rate: true,
+            },
+          },
+
+          Book_Session: {
+            select: {
+              user: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!tutorSessions || tutorSessions.length === 0) {
+        return {
+          success: true,
+          message: `No sessions found for tutor with ID ${id}.`,
+          data: [],
+        };
+      }
+
+      const formattedSessions = tutorSessions.map((session) => {
+        const bookedByStudents = session.Book_Session.map(
+          (booking) => booking.user?.name,
+        ).filter((name) => name);
+
+        return {
+          sessionId: session.id,
+          tutorUsername: session.user?.name,
+          subject: session.subject,
+          hourlyRate: session.user?.hourly_rate,
+          sessionCreateDate: session.created_at,
+          status: session.status,
+          bookedByStudents: bookedByStudents,
+        };
+      });
+
+      return {
+        success: true,
+        message: 'Tutor session information retrieved successfully.',
+        data: formattedSessions,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Error fetching tutor session info: ${error.message}`,
+      };
+    }
   }
 }

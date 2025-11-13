@@ -22,7 +22,7 @@ import { CreateTeamInfoDto } from './dto/create-team-info.dto';
 
 @Controller('web-infro')
 export class WebInfroController {
-  constructor(private readonly webInfroService: WebInfroService) { }
+  constructor(private readonly webInfroService: WebInfroService) {}
 
   @ApiOperation({ summary: 'Create a blog' })
   @ApiBearerAuth()
@@ -100,6 +100,11 @@ export class WebInfroController {
     return this.webInfroService.getAllTeams(userId);
   }
 
+  @Get('public/teams')
+  getPublicAllTeams() {
+    return this.webInfroService.getPublicAllTeams();
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get('all-blogs')
   getAllBlogs(@Req() req: any) {
@@ -135,5 +140,4 @@ export class WebInfroController {
       };
     }
   }
-
 }

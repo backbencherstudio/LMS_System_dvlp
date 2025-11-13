@@ -9,7 +9,7 @@ import { CreateTeamInfoDto } from './dto/create-team-info.dto';
 
 @Injectable()
 export class WebInfroService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   async createAblog(
     createWebInfroDto: CreateWebInfroDto,
@@ -134,6 +134,22 @@ export class WebInfroService {
     };
   }
 
+  async getPublicAllTeams() {
+    const teams = await this.prisma.teamMember.findMany({
+      orderBy: {
+        created_at: 'desc',
+      },
+    });
+
+    return {
+      status: 'success',
+      message: 'Teams fetched successfully',
+      data: {
+        teams,
+      },
+    };
+  }
+
   async GetAllWebBlogs(userId: string) {
     const checkUser = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -161,7 +177,6 @@ export class WebInfroService {
       },
     };
   }
-
 
   //  async remove(id: string, userID: string) {
   //   try {
@@ -225,7 +240,7 @@ export class WebInfroService {
 
   async remove(id: string, userID: string) {
     try {
-      if (!userID) throw new Error("User ID is missing.");
+      if (!userID) throw new Error('User ID is missing.');
 
       const admin = await this.prisma.user.findUnique({
         where: { id: userID, type: 'admin' },
@@ -238,23 +253,30 @@ export class WebInfroService {
         };
 
       const blog = await this.prisma.blog.findUnique({ where: { id } });
-      const team = blog ? null : await this.prisma.teamMember.findUnique({ where: { id } });
+      const team = blog
+        ? null
+        : await this.prisma.teamMember.findUnique({ where: { id } });
 
       return blog
         ? (await this.prisma.blog.delete({ where: { id } }),
-          { success: true, message: `Blog with ID ${id} removed successfully.` })
+          {
+            success: true,
+            message: `Blog with ID ${id} removed successfully.`,
+          })
         : team
           ? (await this.prisma.teamMember.delete({ where: { id } }),
-            { success: true, message: `Team member with ID ${id} removed successfully.` })
+            {
+              success: true,
+              message: `Team member with ID ${id} removed successfully.`,
+            })
           : {
-            success: false,
-            message: 'Request item not found, neither a blog nor a team member.',
-          };
-
+              success: false,
+              message:
+                'Request item not found, neither a blog nor a team member.',
+            };
     } catch (error: any) {
       console.error('Error during removal:', error);
       return { success: false, message: error.message };
     }
   }
-
 }

@@ -175,6 +175,7 @@ export class SessionsService {
       };
     }
   }
+
   async deleteSession(id: string) {
     try {
       const session = await this.prisma.create_Session.findUnique({
@@ -200,6 +201,63 @@ export class SessionsService {
         success: false,
         message: 'An error occurred while deleting the session.',
         error: error.message,
+      };
+    }
+  }
+
+  // Get all session states
+  async findAllStates() {
+    try {
+      const twentyFourHoursAgo = new Date();
+      twentyFourHoursAgo.setDate(twentyFourHoursAgo.getDate() - 1);
+
+      const queries = [
+        this.prisma.create_Session.count(),
+
+        this.prisma.create_Session.count({
+          where: {
+            created_at: {
+              gte: twentyFourHoursAgo,
+            },
+          },
+        }),
+
+        this.prisma.create_Session.count({
+          where: {
+            is_completed: 1,
+          },
+        }),
+
+        this.prisma.book_Session.count({
+          where: {
+            is_cancelled: 1,
+          },
+        }),
+      ];
+
+      const [
+        totalSessions,
+        newSessionsLastDay,
+        completedSessions,
+        cancelledBookings,
+      ] = await this.prisma.$transaction(queries);
+
+      const responseData = {
+        totalSessions,
+        upcomingSessions: newSessionsLastDay,
+        completedSessions,
+        cancelledSessions: cancelledBookings,
+      };
+
+      return {
+        success: true,
+        message: 'Overall session statistics retrieved successfully.',
+        data: responseData,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Error fetching overall session states`,
       };
     }
   }

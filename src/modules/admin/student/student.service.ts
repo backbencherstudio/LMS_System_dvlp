@@ -2,13 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Restriction_period } from '@prisma/client';
-
+import { Prisma, Restriction_period } from '@prisma/client';
 
 @Injectable()
 export class StudentService {
-  constructor(private prisma: PrismaService) { }
-
+  constructor(private prisma: PrismaService) {}
 
   //find all students
   async getAllstudetnds(type: string) {
@@ -33,9 +31,9 @@ export class StudentService {
             grade_level: true,
             Book_Sessions: {
               select: {
-                id: true
-              }
-            }
+                id: true,
+              },
+            },
           },
         },
       },
@@ -52,11 +50,11 @@ export class StudentService {
         status: true,
         Book_Sessions: {
           select: {
-            id: true
-          }
-        }
-      }
-    })
+            id: true,
+          },
+        },
+      },
+    });
 
     const totalData = await Promise.all(
       studentBookedSessions.map(async (session) => {
@@ -68,7 +66,8 @@ export class StudentService {
 
     return {
       success: true,
-      data: studentsInfo, totalData
+      data: studentsInfo,
+      totalData,
     };
   }
   async getOneStudent(id: string) {
@@ -79,22 +78,20 @@ export class StudentService {
           id: true,
           name: true,
           email: true,
-        }
+        },
       });
 
-      return{
+      return {
         success: true,
-        data: existStudent
-      }
-
-
+        data: existStudent,
+      };
     } catch (error) {
       console.log(error);
-      return{
+      return {
         success: false,
-        message: "Error fetching student",
-        error: error.message
-      }
+        message: 'Error fetching student',
+        error: error.message,
+      };
     }
   }
   async restrictedUserAccess(
@@ -220,5 +217,240 @@ export class StudentService {
       success: true,
       message: 'User deleted successfully',
     };
+  }
+
+  //All Student States
+  async findAllStudentStates() {
+    try {
+      const baseStudentFilter = {
+        type: 'student',
+      };
+
+      const queries = [
+        this.prisma.user.count({
+          where: baseStudentFilter,
+        }),
+
+        this.prisma.user.count({
+          where: {
+            ...baseStudentFilter,
+            status: 1,
+          },
+        }),
+
+        this.prisma.user.count({
+          where: {
+            ...baseStudentFilter,
+            status: {
+              not: 1,
+            },
+          },
+        }),
+
+        this.prisma.book_Session.count({
+          where: {
+            user: {
+              type: 'student',
+            },
+          },
+        }),
+      ];
+
+      const [
+        totalStudents,
+        activeStudents,
+        inactiveStudents,
+        totalBookingsByStudents,
+      ] = await this.prisma.$transaction(queries);
+
+      const responseData = {
+        totalStudents,
+        activeStudents,
+        inactiveStudents,
+        totalBookingsByStudents,
+      };
+
+      return {
+        success: true,
+        message: 'Student statistics retrieved successfully.',
+        data: responseData,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Error fetching student states: ${error.message}`,
+      };
+    }
+  }
+
+  // Get a student states
+  async findAStudentStates(id: string) {
+    try {
+      const student = await this.prisma.user.findFirst({
+        where: { id: id, type: 'student' },
+      });
+
+      if (!student) {
+        return {
+          success: false,
+          message: 'User not found',
+        };
+      }
+
+      const baseSessionFilter = {
+        user_id: id,
+      };
+
+      const queries = [
+        this.prisma.book_Session.count({
+          where: baseSessionFilter,
+        }),
+
+        this.prisma.book_Session.count({
+          where: {
+            ...baseSessionFilter,
+            status: 'pending',
+          },
+        }),
+
+        this.prisma.book_Session.count({
+          where: {
+            ...baseSessionFilter,
+            is_completed: 1,
+          },
+        }),
+
+        this.prisma.book_Session.count({
+          where: {
+            ...baseSessionFilter,
+            is_cancelled: 1,
+          },
+        }),
+
+        this.prisma.paymentTransaction.aggregate({
+          _sum: {
+            paid_amount: true,
+          },
+          where: {
+            user_id: id,
+            status: 'succeeded',
+          },
+        }),
+      ];
+
+      const [
+        totalBookedSessions,
+        pendingSessions,
+        completedSessions,
+        cancelledSessions,
+        totalPaymentResult,
+      ] = await this.prisma.$transaction(queries);
+
+      const aggregateResult = totalPaymentResult as {
+        _sum: { paid_amount: Prisma.Decimal | null };
+      };
+
+      const paidAmountDecimal = aggregateResult._sum.paid_amount;
+
+      const totalPaid = paidAmountDecimal ? paidAmountDecimal.toNumber() : 0;
+
+      const responseData = {
+        totalBookedSessions,
+        pendingSessions,
+        completedSessions,
+        cancelledSessions,
+        totalPaid,
+      };
+
+      return {
+        success: true,
+        message: `Statistics for student retrieved successfully.`,
+        data: responseData,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Error fetching student states`,
+      };
+    }
+  }
+  // Get a student all sesson info
+  async findAStudentAllSession(id: string) {
+    try {
+      const student = await this.prisma.user.findFirst({
+        where: { id: id, type: 'student' },
+      });
+
+      if (!student) {
+        return {
+          success: false,
+          message: 'User not found',
+        };
+      }
+
+      const studentBookings = await this.prisma.book_Session.findMany({
+        where: {
+          user_id: id,
+        },
+        select: {
+          id: true,
+
+          create_session: {
+            select: {
+              id: true,
+              subject: true,
+              session_type: true,
+              created_at: true,
+              status: true,
+
+              user: {
+                select: {
+                  name: true,
+                  hourly_rate: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          created_at: 'desc',
+        },
+      });
+
+      if (!studentBookings || studentBookings.length === 0) {
+        return {
+          success: true,
+          message: 'This student has not booked any sessions yet.',
+          data: [],
+        };
+      }
+
+      const formattedSessions = studentBookings.map((booking) => {
+        const session = booking.create_session;
+        const tutor = session?.user;
+
+        return {
+          bookingId: booking.id,
+          sessionId: session?.id,
+          tutorName: tutor?.name,
+          subject: session?.subject,
+          sessionType: session?.session_type,
+          tutorHourlyRate: tutor?.hourly_rate,
+          sessionCreateDate: session?.created_at,
+          sessionStatus: session.status,
+        };
+      });
+
+      return {
+        success: true,
+        message: 'Student session history retrieved successfully.',
+        data: formattedSessions,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Error fetching student's sessions: ${error.message}`,
+      };
+    }
   }
 }

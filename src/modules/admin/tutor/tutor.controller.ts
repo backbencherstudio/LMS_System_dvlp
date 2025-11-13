@@ -69,6 +69,27 @@ export class TutorController {
     }
   }
 
+  // Tutor States
+  @Get('stats')
+  async getTutorStates() {
+    const tutorInfoCount = await this.tutorService.findTutorStates();
+    return tutorInfoCount;
+  }
+
+  //Tutor session States
+  @Get('session-stats/:id')
+  async getTutorSessionStates(@Param('id') id: string) {
+    const tutorInfoCount = await this.tutorService.findTutorSessionStates(id);
+    return tutorInfoCount;
+  }
+
+  //tutor all session info
+  @Get('session-info/:id')
+  async getTutorSessionInfo(@Param('id') id: string) {
+    const tutorInfoCount = await this.tutorService.findTutorSessionInfo(id);
+    return tutorInfoCount;
+  }
+
   @Get('/applications')
   getTutorApplications() {
     return this.tutorService.getAllTutorApplications();

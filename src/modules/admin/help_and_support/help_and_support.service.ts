@@ -41,12 +41,20 @@ export class HelpAndSupportService {
           type: 'contact_message',
         };
 
-        NotificationRepository.createNotification(adminNotificationPayload);
+        const userSocketId = this.messageGateway.clients.get(admin.id);
 
-        this.messageGateway.server.emit(
-          'notification',
-          adminNotificationPayload,
-        );
+        if (userSocketId) {
+          this.messageGateway.server
+            .to(userSocketId)
+            .emit('notification', adminNotificationPayload);
+          console.log(`Notification sent to user ${admin.id}`);
+        } else {
+          console.log(
+            `User ${admin.id} is not connected, notification will be sent later.`,
+          );
+        }
+
+        NotificationRepository.createNotification(adminNotificationPayload);
       }
     }
     return {
@@ -108,11 +116,21 @@ export class HelpAndSupportService {
       type: 'help_and_support_status_updated',
     };
 
+    const userSocketId = this.messageGateway.clients.get(message.user_id);
+
+    if (userSocketId) {
+      this.messageGateway.server
+        .to(userSocketId)
+        .emit('notification', supportUserNotificationPayload);
+      console.log(`Notification sent to user ${message.user_id}`);
+    } else {
+      console.log(
+        `User ${message.user_id} is not connected, notification will be sent later.`,
+      );
+    }
+
     NotificationRepository.createNotification(supportUserNotificationPayload);
-    this.messageGateway.server.emit(
-      'notification',
-      supportUserNotificationPayload,
-    );
+
     return {
       success: true,
       message: 'Help and support message status updated successfully.',

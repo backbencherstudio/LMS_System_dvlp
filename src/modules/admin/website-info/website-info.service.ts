@@ -274,8 +274,8 @@ export class WebsiteInfoService {
           },
           where: {
             status: 'succeeded',
-            raw_status: {
-              not: 'succeeded',
+            type: {
+              not: 'payout',
             },
             created_at: {
               gte: oneMonthAgo,

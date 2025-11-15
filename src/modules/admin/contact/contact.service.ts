@@ -52,12 +52,20 @@ export class ContactService {
             type: 'contact_message',
           };
 
-          NotificationRepository.createNotification(adminNotificationPayload);
+          const userSocketId = this.messageGateway.clients.get(admin.id);
 
-          this.messageGateway.server.emit(
-            'notification',
-            adminNotificationPayload,
-          );
+          if (userSocketId) {
+            this.messageGateway.server
+              .to(userSocketId)
+              .emit('notification', adminNotificationPayload);
+            console.log(`Notification sent to user ${admin.id}`);
+          } else {
+            console.log(
+              `User ${admin.id} is not connected, notification will be sent later.`,
+            );
+          }
+
+          NotificationRepository.createNotification(adminNotificationPayload);
         }
       }
 

@@ -112,7 +112,21 @@ export class TeacherService {
       };
 
       NotificationRepository.createNotification(notificationPayload);
-      this.messageGatway.server.emit('notification', notificationPayload);
+
+      const userSocketId = this.messageGatway.clients.get(
+        createSessionDto.user_id,
+      );
+
+      if (userSocketId) {
+        this.messageGatway.server
+          .to(userSocketId)
+          .emit('notification', notificationPayload);
+        console.log(`Notification sent to user ${createSessionDto.user_id}`);
+      } else {
+        console.log(
+          `User ${createSessionDto.user_id} is not connected, notification will be sent later.`,
+        );
+      }
 
       if (admins.length > 0) {
         for (const admin of admins) {
@@ -124,10 +138,18 @@ export class TeacherService {
           };
 
           NotificationRepository.createNotification(admin_notificationPayload);
-          this.messageGatway.server.emit(
-            'notification',
-            admin_notificationPayload,
-          );
+          const userSocketId = this.messageGatway.clients.get(admin.id);
+
+          if (userSocketId) {
+            this.messageGatway.server
+              .to(userSocketId)
+              .emit('notification', admin_notificationPayload);
+            console.log(`Notification sent to user ${admin.id}`);
+          } else {
+            console.log(
+              `User ${admin.id} is not connected, notification will be sent later.`,
+            );
+          }
         }
       }
 
@@ -576,7 +598,19 @@ export class TeacherService {
         type: 'reschedule_request',
       };
       NotificationRepository.createNotification(notificationPayload);
-      this.messageGatway.server.emit('notification', notificationPayload);
+
+      const userSocketId = this.messageGatway.clients.get(request.user_id);
+
+      if (userSocketId) {
+        this.messageGatway.server
+          .to(userSocketId)
+          .emit('notification', notificationPayload);
+        console.log(`Notification sent to user ${request.user_id}`);
+      } else {
+        console.log(
+          `User ${request.user_id} is not connected, notification will be sent later.`,
+        );
+      }
 
       return { message: 'Reschedule request accepted successfully' };
     }
@@ -605,7 +639,19 @@ export class TeacherService {
         type: 'reschedule_request',
       };
       NotificationRepository.createNotification(notificationPayload);
-      this.messageGatway.server.emit('notification', notificationPayload);
+
+      const userSocketId = this.messageGatway.clients.get(request.user_id);
+
+      if (userSocketId) {
+        this.messageGatway.server
+          .to(userSocketId)
+          .emit('notification', notificationPayload);
+        console.log(`Notification sent to user ${request.user_id}`);
+      } else {
+        console.log(
+          `User ${request.user_id} is not connected, notification will be sent later.`,
+        );
+      }
 
       return { message: 'Reschedule request rejected successfully' };
     }

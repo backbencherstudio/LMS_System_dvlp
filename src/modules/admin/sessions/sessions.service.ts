@@ -105,10 +105,18 @@ export class SessionsService {
         teacherSessionNotificationPayload,
       );
 
-      this.messageGateway.server.emit(
-        'notification',
-        teacherSessionNotificationPayload,
-      );
+      const userSocketId = this.messageGateway.clients.get(session.user_id);
+
+      if (userSocketId) {
+        this.messageGateway.server
+          .to(userSocketId)
+          .emit('notification', teacherSessionNotificationPayload);
+        console.log(`Notification sent to user ${session.user_id}`);
+      } else {
+        console.log(
+          `User ${session.user_id} is not connected, notification will be sent later.`,
+        );
+      }
 
       return {
         success: true,
@@ -159,7 +167,18 @@ export class SessionsService {
 
       NotificationRepository.createNotification(adminNotificationPayload);
 
-      this.messageGateway.server.emit('notification', adminNotificationPayload);
+      const userSocketId = this.messageGateway.clients.get(session.user_id);
+
+      if (userSocketId) {
+        this.messageGateway.server
+          .to(userSocketId)
+          .emit('notification', adminNotificationPayload);
+        console.log(`Notification sent to user ${session.user_id}`);
+      } else {
+        console.log(
+          `User ${session.user_id} is not connected, notification will be sent later.`,
+        );
+      }
 
       return {
         success: true,

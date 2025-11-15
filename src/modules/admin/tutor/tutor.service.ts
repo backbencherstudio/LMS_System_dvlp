@@ -194,10 +194,18 @@ export class TutorService {
         appceptTeacherNotificationPlaload,
       );
 
-      this.messageGateway.server.emit(
-        'notification',
-        appceptTeacherNotificationPlaload,
-      );
+      const userSocketId = this.messageGateway.clients.get(tutor.id);
+
+      if (userSocketId) {
+        this.messageGateway.server
+          .to(userSocketId)
+          .emit('notification', appceptTeacherNotificationPlaload);
+        console.log(`Notification sent to user ${tutor.id}`);
+      } else {
+        console.log(
+          `User ${tutor.id} is not connected, notification will be sent later.`,
+        );
+      }
 
       // mail
       await this.mailService.sendTutorApplicationStatusEmail({
@@ -239,10 +247,18 @@ export class TutorService {
         appceptTeacherNotificationPlaload,
       );
 
-      this.messageGateway.server.emit(
-        'notification',
-        appceptTeacherNotificationPlaload,
-      );
+      const userSocketId = this.messageGateway.clients.get(tutor.id);
+
+      if (userSocketId) {
+        this.messageGateway.server
+          .to(userSocketId)
+          .emit('notification', appceptTeacherNotificationPlaload);
+        console.log(`Notification sent to user ${tutor.id}`);
+      } else {
+        console.log(
+          `User ${tutor.id} is not connected, notification will be sent later.`,
+        );
+      }
       // mail
       await this.mailService.sendTutorApplicationStatusEmail({
         email: tutor.email,

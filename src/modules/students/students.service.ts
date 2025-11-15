@@ -110,7 +110,18 @@ export class StudentsService {
 
     NotificationRepository.createNotification(bookNotificationPayload);
 
-    this.messageGateway.server.emit('notification', bookNotificationPayload);
+    const userSocketId = this.messageGateway.clients.get(userId);
+
+    if (userSocketId) {
+      this.messageGateway.server
+        .to(userSocketId)
+        .emit('notification', bookNotificationPayload);
+      console.log(`Notification sent to user ${userId}`);
+    } else {
+      console.log(
+        `User ${userId} is not connected, notification will be sent later.`,
+      );
+    }
 
     // send booking confirmation teacher notification
     const bookTeacherNotificationPayload: any = {
@@ -123,10 +134,18 @@ export class StudentsService {
 
     NotificationRepository.createNotification(bookTeacherNotificationPayload);
 
-    this.messageGateway.server.emit(
-      'notification',
-      bookTeacherNotificationPayload,
-    );
+    const userSocketIdTutor = this.messageGateway.clients.get(session.user_id);
+
+    if (userSocketIdTutor) {
+      this.messageGateway.server
+        .to(userSocketIdTutor)
+        .emit('notification', bookTeacherNotificationPayload);
+      console.log(`Notification sent to user ${session.user_id}`);
+    } else {
+      console.log(
+        `User ${session.user_id} is not connected, notification will be sent later.`,
+      );
+    }
 
     // send booking confirmation admin notification
     const admins = await this.prisma.user.findMany({
@@ -142,11 +161,21 @@ export class StudentsService {
           message: `A new session has been booked for ${session.subject} by  ${createStudentDto.name} on ${slotDate.toISOString()}`,
           type: 'session_booking',
         };
+
+        const userSocketId = this.messageGateway.clients.get(admin.id);
+
+        if (userSocketId) {
+          this.messageGateway.server
+            .to(userSocketId)
+            .emit('notification', bookAdminNotificationPayload);
+          console.log(`Notification sent to user ${admin.id}`);
+        } else {
+          console.log(
+            `User ${admin.id} is not connected, notification will be sent later.`,
+          );
+        }
+
         NotificationRepository.createNotification(bookAdminNotificationPayload);
-        this.messageGateway.server.emit(
-          'notification',
-          bookAdminNotificationPayload,
-        );
       }
     }
 
@@ -333,22 +362,23 @@ export class StudentsService {
 
     const formattedCompletedSessions = completedSessions.map((session) => {
       const createSession = session.create_session ?? null;
-      const rating = session.Rate_Session?.length > 0 ? session.Rate_Session[0].rating : 0;
+      const rating =
+        session.Rate_Session?.length > 0 ? session.Rate_Session[0].rating : 0;
 
       const sessionDetails = createSession
         ? {
-          sessionId: createSession.id,
-          teacherName: teacherName || 'N/A',
-          teacherId: createSession.user_id,
-          avatar: avatar,
-          sessionRate: rating,
-          sessionType: createSession.session_type,
-          subject: createSession.subject,
-          charge: createSession.session_charge,
-          mode: createSession.mode,
-          joinLink: createSession.join_link ?? 'N/A',
-          sessionPeriod: session.session_period || '60 mins',
-        }
+            sessionId: createSession.id,
+            teacherName: teacherName || 'N/A',
+            teacherId: createSession.user_id,
+            avatar: avatar,
+            sessionRate: rating,
+            sessionType: createSession.session_type,
+            subject: createSession.subject,
+            charge: createSession.session_charge,
+            mode: createSession.mode,
+            joinLink: createSession.join_link ?? 'N/A',
+            sessionPeriod: session.session_period || '60 mins',
+          }
         : {
             sessionRate: rating,
           };
@@ -403,8 +433,21 @@ export class StudentsService {
         text: `You have joined the session: ${session.username}`,
         type: 'session_joined',
       };
+
+      const userSocketId = this.messageGateway.clients.get(userId);
+
+      if (userSocketId) {
+        this.messageGateway.server
+          .to(userSocketId)
+          .emit('notification', joinNotificationPayload);
+        console.log(`Notification sent to user ${userId}`);
+      } else {
+        console.log(
+          `User ${userId} is not connected, notification will be sent later.`,
+        );
+      }
+
       NotificationRepository.createNotification(joinNotificationPayload);
-      this.messageGateway.server.emit('notification', joinNotificationPayload);
 
       // teacher notification
       const bookedSession = await this.prisma.book_Session.findUnique({
@@ -422,12 +465,23 @@ export class StudentsService {
         text: `Your session with Subject Name: ${createSession.subject} has been joined by ${session.username}`,
         type: 'session_joined',
       };
-      NotificationRepository.createNotification(teacherNotificationPayload);
 
-      this.messageGateway.server.emit(
-        'notification',
-        teacherNotificationPayload,
+      const userSocketIdTutor = this.messageGateway.clients.get(
+        createSession.user_id,
       );
+
+      if (userSocketIdTutor) {
+        this.messageGateway.server
+          .to(userSocketIdTutor)
+          .emit('notification', teacherNotificationPayload);
+        console.log(`Notification sent to user ${createSession.user_id}`);
+      } else {
+        console.log(
+          `User ${createSession.user_id} is not connected, notification will be sent later.`,
+        );
+      }
+
+      NotificationRepository.createNotification(teacherNotificationPayload);
 
       return { message: 'Session joined successfully' };
     }
@@ -593,7 +647,7 @@ export class StudentsService {
         ...student,
         totalBookedSessions,
       },
-     };
+    };
   }
   async rateASession(
     body: StudentRatingDto,
@@ -691,7 +745,13 @@ export class StudentsService {
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, first_name: true, last_name: true, avatar: true, type: true },
+      select: {
+        id: true,
+        first_name: true,
+        last_name: true,
+        avatar: true,
+        type: true,
+      },
     });
 
     if (!user) {
@@ -699,10 +759,8 @@ export class StudentsService {
     }
 
     if (userId !== user.id) {
-      return { message: "Unauthorized access to sessions" };
+      return { message: 'Unauthorized access to sessions' };
     }
-
-
 
     if (user?.type !== 'student') {
       throw new BadRequestException(
@@ -715,21 +773,19 @@ export class StudentsService {
 
     const formattedBookings = bookings.map((booking) => {
       return {
-
         sessionDate: booking.session_date
           ? new Date(booking.session_date).toISOString()
           : 'N/A',
 
         sessionDetails: booking.create_session
           ? {
-            teacherName: teacherName.trim() || 'N/A',
-            avatar: avatar,
-            subject: booking.create_session.subject,
-            mode: booking.create_session.mode,
-            pdfAttachment: booking.create_session.pdf_attachment ?? 'N/A',
-          }
-          : "sessionDetails not available",
-
+              teacherName: teacherName.trim() || 'N/A',
+              avatar: avatar,
+              subject: booking.create_session.subject,
+              mode: booking.create_session.mode,
+              pdfAttachment: booking.create_session.pdf_attachment ?? 'N/A',
+            }
+          : 'sessionDetails not available',
       };
     });
 
@@ -737,5 +793,4 @@ export class StudentsService {
       bookings: formattedBookings,
     };
   }
-
 }

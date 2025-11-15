@@ -148,7 +148,6 @@ export class AuthService {
         );
       }
 
-
       if (!data.highest_education_level) {
         throw new HttpException(
           'required field is missing',
@@ -232,11 +231,21 @@ export class AuthService {
             text: `A new tutor has registered and is awaiting for approval. Name: ${user.first_name} ${user.last_name}, Email: ${user.email}`,
             type: 'teacher_register',
           };
-          NotificationRepository.createNotification(
-            teacherRegisterNotificationPayload,
-          );
-          this.messageGateway.server.emit(
-            'notification',
+
+          const userSocketId = this.messageGateway.clients.get(admin.id);
+
+          if (userSocketId) {
+            this.messageGateway.server
+              .to(userSocketId)
+              .emit('notification', teacherRegisterNotificationPayload);
+            console.log(`Notification sent to user ${admin.id}`);
+          } else {
+            console.log(
+              `User ${admin.id} is not connected, notification will be sent later.`,
+            );
+          }
+
+          await NotificationRepository.createNotification(
             teacherRegisterNotificationPayload,
           );
         }
@@ -429,7 +438,6 @@ export class AuthService {
         },
       });
 
-      
       if (!user) {
         return {
           success: false,
@@ -454,8 +462,6 @@ export class AuthService {
           );
         }
       }
-
-    
 
       if (user.avatar) {
         user['avatar_url'] = SojebStorage.url(

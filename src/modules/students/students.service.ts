@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  HttpStatus,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -20,6 +21,7 @@ import { Role } from '../../common/guard/role/role.enum';
 import { NotificationRepository } from 'src/common/repository/notification/notification.repository';
 import { MessageGateway } from 'src/modules/chat/message/message.gateway';
 import { Session } from '../admin/sessions/entities/session.entity';
+import { stat } from 'fs';
 
 @Injectable()
 export class StudentsService {
@@ -77,6 +79,7 @@ export class StudentsService {
 
     if (alreadyBooked) {
       return {
+        status: HttpStatus.CONFLICT,
         message: 'You have already booked this session at the selected time',
       };
     }

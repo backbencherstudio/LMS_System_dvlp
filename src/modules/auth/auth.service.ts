@@ -468,7 +468,6 @@ export class AuthService {
           appConfig().storageUrl.avatar + user.avatar,
         );
       }
-      
 
       //delete user.certifications;
       delete user.certifications;
@@ -491,6 +490,7 @@ export class AuthService {
       };
     }
   }
+
   async updateUser(
     userId: string,
     type: string,
@@ -499,51 +499,25 @@ export class AuthService {
     certifications?: Express.Multer.File[],
   ) {
     try {
+      // console.log(updateUserDto.about_me);
       const data: any = {};
 
-      switch (true) {
-        case !!updateUserDto.first_name:
-          data.first_name = updateUserDto.first_name;
-          break;
-        case !!updateUserDto.last_name:
-          data.last_name = updateUserDto.last_name;
-          break;
-        case !!updateUserDto.name:
-          data.name = updateUserDto.name;
-          break;
-        case !!updateUserDto.phone_number:
-          data.phone_number = updateUserDto.phone_number;
-          break;
-        case !!updateUserDto.country:
-          data.country = updateUserDto.country;
-          break;
-        case !!updateUserDto.state:
-          data.state = updateUserDto.state;
-          break;
-        case !!updateUserDto.local_government:
-          data.local_government = updateUserDto.local_government;
-          break;
-        case !!updateUserDto.city:
-          data.city = updateUserDto.city;
-          break;
-        case !!updateUserDto.zip_code:
-          data.zip_code = updateUserDto.zip_code;
-          break;
-        case !!updateUserDto.address:
-          data.address = updateUserDto.address;
-          break;
-        case !!updateUserDto.gender:
-          data.gender = updateUserDto.gender;
-          break;
-        case !!updateUserDto.date_of_birth:
-          data.date_of_birth = DateHelper.format(updateUserDto.date_of_birth);
-          break;
-        case !!updateUserDto.about_me:
-          data.about_me = updateUserDto.about_me;
-          break;
-        default:
-          break;
-      }
+      if (updateUserDto.first_name) data.first_name = updateUserDto.first_name;
+      if (updateUserDto.last_name) data.last_name = updateUserDto.last_name;
+      if (updateUserDto.name) data.name = updateUserDto.name;
+      if (updateUserDto.phone_number)
+        data.phone_number = updateUserDto.phone_number;
+      if (updateUserDto.country) data.country = updateUserDto.country;
+      if (updateUserDto.state) data.state = updateUserDto.state;
+      if (updateUserDto.local_government)
+        data.local_government = updateUserDto.local_government;
+      if (updateUserDto.city) data.city = updateUserDto.city;
+      if (updateUserDto.zip_code) data.zip_code = updateUserDto.zip_code;
+      if (updateUserDto.address) data.address = updateUserDto.address;
+      if (updateUserDto.gender) data.gender = updateUserDto.gender;
+      if (updateUserDto.date_of_birth)
+        data.date_of_birth = DateHelper.format(updateUserDto.date_of_birth);
+      if (updateUserDto.about_me) data.about_me = updateUserDto.about_me;
 
       if (type === 'student') {
         if (updateUserDto.grade_level) {
@@ -582,6 +556,16 @@ export class AuthService {
         }
         if (updateUserDto.hourly_rate) {
           data.hourly_rate = updateUserDto.hourly_rate;
+        }
+
+        if (updateUserDto.grades_taught) {
+          if (!Array.isArray(updateUserDto.grades_taught)) {
+            return {
+              success: false,
+              message: 'grades_taught must be an array of strings.',
+            };
+          }
+          data.grades_taught = updateUserDto.grades_taught;
         }
       }
 

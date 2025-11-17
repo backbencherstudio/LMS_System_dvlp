@@ -1,6 +1,7 @@
 import { ApiProperty, PartialType } from '@nestjs/swagger';
 import { CreateUserDto } from './create-user.dto';
-import { IsOptional, IsString } from 'class-validator';
+import { IsArray, IsOptional, IsString } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class UpdateUserDto extends PartialType(CreateUserDto) {
   @IsOptional()
@@ -31,7 +32,8 @@ export class UpdateUserDto extends PartialType(CreateUserDto) {
   @IsString()
   @ApiProperty({
     description: 'Bio of the user',
-    example: 'Experienced Math teacher with a passion for helping students succeed.',
+    example:
+      'Experienced Math teacher with a passion for helping students succeed.',
   })
   about_me?: string;
 
@@ -158,4 +160,17 @@ export class UpdateUserDto extends PartialType(CreateUserDto) {
     example: '14/11/2001',
   })
   date_of_birth?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @Transform(({ value }) => {
+    if (Array.isArray(value)) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      return value.split(',').map((item) => item.trim());
+    }
+  })
+  grades_taught?: string[];
 }

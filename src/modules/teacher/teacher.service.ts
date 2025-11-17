@@ -780,7 +780,7 @@ export class TeacherService {
     // Build URLs
 
     if (teacher.avatar) {
-      teacher['avatar_url'] = `avatar/${teacher.avatar}`;
+      teacher['avatar_url'] = `/avatar/${teacher.avatar}`;
     }
 
     if (

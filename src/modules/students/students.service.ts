@@ -3,6 +3,7 @@ import {
   ConflictException,
   HttpStatus,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { CreateStudentDto } from './dto/create-student.dto';
@@ -31,7 +32,7 @@ export class StudentsService {
     private mailService: MailService,
     private readonly messageGateway: MessageGateway,
     @InjectRedis() private readonly redis: Redis,
-  ) {}
+  ) { }
 
   create(createStudentDto: CreateStudentDto) {
     return 'This action adds a new student';
@@ -276,41 +277,41 @@ export class StudentsService {
         // },
         sessionDetails: booking.create_session
           ? {
-              sessionId: booking.create_session.id || 'N/A',
-              teacherId: booking.create_session.user_id,
-              teacherName: teacherName.trim() || 'N/A',
-              avatar: avatar,
-              sessionType: booking.create_session.session_type,
-              subject: booking.create_session.subject,
-              charge: booking.create_session.session_charge,
-              mode: booking.create_session.mode,
-              joinLink: booking.create_session.join_link ?? 'N/A',
-            }
+            sessionId: booking.create_session.id || 'N/A',
+            teacherId: booking.create_session.user_id,
+            teacherName: teacherName.trim() || 'N/A',
+            avatar: avatar,
+            sessionType: booking.create_session.session_type,
+            subject: booking.create_session.subject,
+            charge: booking.create_session.session_charge,
+            mode: booking.create_session.mode,
+            joinLink: booking.create_session.join_link ?? 'N/A',
+          }
           : 'sessionDetails not available',
 
         rescheduleDetails:
           Array.isArray(booking.Reschedule_Session) &&
-          booking.Reschedule_Session.length > 0
+            booking.Reschedule_Session.length > 0
             ? {
-                requestId: booking.Reschedule_Session[0].id,
-                subject: booking.Reschedule_Session[0].subject,
-                reason: booking.Reschedule_Session[0].reason,
-                isAccepted:
-                  booking.Reschedule_Session[0].is_accepted === 1
-                    ? true
-                    : false,
-                isRejected:
-                  booking.Reschedule_Session[0].is_rejected === 1
-                    ? true
-                    : false,
-                rejectReason:
-                  booking.Reschedule_Session[0].reject_reason || 'N/A',
-                rescheduledDate: booking.Reschedule_Session[0].rescheduled_date
-                  ? new Date(
-                      booking.Reschedule_Session[0].rescheduled_date,
-                    ).toISOString()
-                  : 'rescheduleDetails not available',
-              }
+              requestId: booking.Reschedule_Session[0].id,
+              subject: booking.Reschedule_Session[0].subject,
+              reason: booking.Reschedule_Session[0].reason,
+              isAccepted:
+                booking.Reschedule_Session[0].is_accepted === 1
+                  ? true
+                  : false,
+              isRejected:
+                booking.Reschedule_Session[0].is_rejected === 1
+                  ? true
+                  : false,
+              rejectReason:
+                booking.Reschedule_Session[0].reject_reason || 'N/A',
+              rescheduledDate: booking.Reschedule_Session[0].rescheduled_date
+                ? new Date(
+                  booking.Reschedule_Session[0].rescheduled_date,
+                ).toISOString()
+                : 'rescheduleDetails not available',
+            }
             : null,
       };
     });
@@ -370,21 +371,21 @@ export class StudentsService {
 
       const sessionDetails = createSession
         ? {
-            sessionId: createSession.id,
-            teacherName: teacherName || 'N/A',
-            teacherId: createSession.user_id,
-            avatar: avatar,
-            sessionRate: rating,
-            sessionType: createSession.session_type,
-            subject: createSession.subject,
-            charge: createSession.session_charge,
-            mode: createSession.mode,
-            joinLink: createSession.join_link ?? 'N/A',
-            sessionPeriod: session.session_period || '60 mins',
-          }
+          sessionId: createSession.id,
+          teacherName: teacherName || 'N/A',
+          teacherId: createSession.user_id,
+          avatar: avatar,
+          sessionRate: rating,
+          sessionType: createSession.session_type,
+          subject: createSession.subject,
+          charge: createSession.session_charge,
+          mode: createSession.mode,
+          joinLink: createSession.join_link ?? 'N/A',
+          sessionPeriod: session.session_period || '60 mins',
+        }
         : {
-            sessionRate: rating,
-          };
+          sessionRate: rating,
+        };
 
       return {
         sessionId: session.id,
@@ -403,21 +404,26 @@ export class StudentsService {
   }
 
   async joinsession(userId: string, sessionId: string) {
-    const session = await this.prisma.book_Session.findFirst({
-      where: { id: sessionId, user_id: userId },
+    try {
+      const session = await this.prisma.book_Session.findUnique({
+      where: { id: sessionId, user_id: userId},
       select: {
         id: true,
         username: true,
         is_joined: true,
         is_cancelled: true,
+        payment_status: true,
       },
     });
+
+
 
     if (!session) {
       throw new NotFoundException('Session not found');
     }
 
-    if (session.is_cancelled === 1) {
+    if (session.payment_status === "paid") {
+          if (session.is_cancelled === 1) {
       return { message: 'Cannot join a cancelled session' };
     }
 
@@ -487,6 +493,15 @@ export class StudentsService {
       NotificationRepository.createNotification(teacherNotificationPayload);
 
       return { message: 'Session joined successfully' };
+    }
+    }else{
+      return { message: 'Payment pending. Please complete the payment to join the session.' }
+    }
+
+
+    } catch (error) {
+      console.error('Error in joinsession service:', error);
+      throw new InternalServerErrorException('Failed to join session');
     }
   }
   async cancellSession(userId: string, sessionId: string) {
@@ -782,12 +797,12 @@ export class StudentsService {
 
         sessionDetails: booking.create_session
           ? {
-              teacherName: teacherName.trim() || 'N/A',
-              avatar: avatar,
-              subject: booking.create_session.subject,
-              mode: booking.create_session.mode,
-              pdfAttachment: booking.create_session.pdf_attachment ?? 'N/A',
-            }
+            teacherName: teacherName.trim() || 'N/A',
+            avatar: avatar,
+            subject: booking.create_session.subject,
+            mode: booking.create_session.mode,
+            pdfAttachment: booking.create_session.pdf_attachment ?? 'N/A',
+          }
           : 'sessionDetails not available',
       };
     });

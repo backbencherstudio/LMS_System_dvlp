@@ -450,7 +450,7 @@ export class AuthService {
         user.grades_taught = [];
       }
 
-      const basePublicUrl = `http://localhost:${process.env.PORT || 5000}/public/storage/`;
+      const basePublicUrl = `/public/storage`;
 
       if (user.type === 'teacher') {
         if (
@@ -468,6 +468,7 @@ export class AuthService {
           appConfig().storageUrl.avatar + user.avatar,
         );
       }
+      
 
       //delete user.certifications;
       delete user.certifications;
@@ -507,6 +508,9 @@ export class AuthService {
         case !!updateUserDto.last_name:
           data.last_name = updateUserDto.last_name;
           break;
+        case !!updateUserDto.name:
+          data.name = updateUserDto.name;
+          break;
         case !!updateUserDto.phone_number:
           data.phone_number = updateUserDto.phone_number;
           break;
@@ -533,6 +537,9 @@ export class AuthService {
           break;
         case !!updateUserDto.date_of_birth:
           data.date_of_birth = DateHelper.format(updateUserDto.date_of_birth);
+          break;
+        case !!updateUserDto.about_me:
+          data.about_me = updateUserDto.about_me;
           break;
         default:
           break;
@@ -578,7 +585,7 @@ export class AuthService {
         }
       }
 
-      // ✅ Certifications only teacher can update
+      //Certifications only teacher can update
       if (type === 'teacher' && certifications) {
         const oldCerts = await this.prisma.user.findFirst({
           where: { id: userId },

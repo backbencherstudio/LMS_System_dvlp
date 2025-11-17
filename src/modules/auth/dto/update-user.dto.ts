@@ -22,6 +22,22 @@ export class UpdateUserDto extends PartialType(CreateUserDto) {
   @IsOptional()
   @IsString()
   @ApiProperty({
+    description: 'name of the user',
+    example: 'Johnny',
+  })
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({
+    description: 'Bio of the user',
+    example: 'Experienced Math teacher with a passion for helping students succeed.',
+  })
+  about_me?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiProperty({
     description: 'The grade level for students',
     example: '10th Grade',
   })

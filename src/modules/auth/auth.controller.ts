@@ -400,26 +400,26 @@ export class AuthController {
       });
 
       if (response.success) {
-        let redirectUrl = 'http://localhost:3000/login';
+        let redirectUrl = 'https://evolve-lms.netlify.app/login';
         const userType = response.data?.user_type;
 
         if (userType === 'teacher') {
-          redirectUrl = 'http://localhost:3000/tutor/sign-in';
+          redirectUrl = 'https://evolve-lms.netlify.app/tutor/sign-in';
         } else if (userType === 'student') {
-          redirectUrl = 'http://localhost:3000/student/sign-in';
+          redirectUrl = 'https://evolve-lms.netlify.app/student/sign-in';
         }
 
         return res.redirect(redirectUrl);
       } else {
         const errorMessage = encodeURIComponent(response.message);
         return res.redirect(
-          `http://localhost:3000/verification-failed?error=${errorMessage}`,
+          `https://evolve-lms.netlify.app/verification-failed?error=${errorMessage}`,
         );
       }
     } catch (error) {
       const errorMessage = encodeURIComponent('An unexpected error occurred.');
       return res.redirect(
-        `http://localhost:3000/verification-failed?error=${errorMessage}`,
+        `https://evolve-lms.netlify.app/verification-failed?error=${errorMessage}`,
       );
     }
   }

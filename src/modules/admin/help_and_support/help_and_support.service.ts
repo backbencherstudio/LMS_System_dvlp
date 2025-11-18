@@ -12,19 +12,18 @@ export class HelpAndSupportService {
     private readonly messageGateway: MessageGateway,
   ) {}
 
-  //create a help and support ticket forr users
   async createSupport(
     createHelpAndSupportDto: CreateHelpAndSupportDto,
-    userId: string,
+    // userId: string,
   ) {
     const { full_name, email, subject, message } = createHelpAndSupportDto;
-    const newTicket = await this.prisma.helpAndSupport.create({
+    await this.prisma.helpAndSupport.create({
       data: {
         full_name,
         email,
         subject,
         message,
-        user_id: userId,
+        // user_id: userId,
       },
     });
 
@@ -35,7 +34,7 @@ export class HelpAndSupportService {
     if (admins && admins.length > 0) {
       for (const admin of admins) {
         const adminNotificationPayload: any = {
-          sender_id: userId,
+          sender_id: '',
           receiver_id: admin.id,
           text: `A new contact message has been received. Subject: ${subject} from ${full_name} email: ${email} `,
           type: 'contact_message',

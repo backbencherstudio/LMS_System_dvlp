@@ -22,7 +22,7 @@ export class TeacherService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly messageGatway: MessageGateway,
-  ) {}
+  ) { }
 
   // session creating
   async create(createSessionDto: CreateSessionDto) {
@@ -165,10 +165,68 @@ export class TeacherService {
       console.error('Error creating session:', error);
     }
   }
-  //get all sessions for one teacher
+  //get all sessions for one teacher with id
+  async getAllSessionsForOneTeachers(userId: string) {
+    try {
+      const sessions = await this.prismaService.create_Session.findMany({
+        where: { user_id: userId, is_completed: 0 },
+        select: {
+          id: true,
+          user_id: true,
+          subject: true,
+          session_charge: true,
+          mode: true,
+          slots_available: true,
+          available_slots_time_and_date: true,
+          join_link: true,
+          session_type: true,
+          is_started: true,
+          
+        },
+      });
+
+      // const checkBookSessionStarted = await this.prismaService.book_Session.findMany({
+      //   where: { create_session: { user_id: userId }, started_at: { not: null } },
+      //   select: {
+      //     id: true,
+      //     started_at: true,
+      //   }
+      // });
+
+      // console.log(checkBookSessionStarted);
+
+
+      // const formattedSessions = await Promise.all(
+      //   sessions.map(async (session) => {
+      //     const startedCount = await this.prismaService.book_Session.count({
+      //       where: {
+      //         create_session_id: session.id,
+      //         started_at: { not: null }, 
+      //       },
+      //     });
+
+      //     return {
+      //       ...session,
+      //       sessionStarted: startedCount > 0, 
+      //     };
+      //   })
+      // );
+
+      return {
+        success: true,
+        data: sessions,
+
+      };
+    } catch (error) {
+      console.error('Error in getAllSessionsForOneTeacher:', error);
+      return { success: false, message: 'Failed to fetch sessions' };
+    }
+  }
+
+  //get all sessions for one teacher without id
   async getAllSessionsForOneTeacher(userId: string) {
-    return this.prismaService.create_Session.findMany({
-      where: { user_id: userId },
+    return await this.prismaService.create_Session.findMany({
+      where: { user_id: userId, is_completed: 0 },
       select: {
         id: true,
         user_id: true,
@@ -182,6 +240,75 @@ export class TeacherService {
       },
     });
   }
+
+
+
+  async startASession(sessionId: string, userId: string) {
+
+    try {
+      const session = await this.prismaService.create_Session.findUnique({
+        where: { id: sessionId, user_id: userId },
+        select:{
+          is_started: true
+        }
+      });
+      if (!session) {
+        return {
+          success: false,
+          message: 'Session not found or you are not authorized to start it',
+        };
+      }
+
+      if(session.is_started === 1){
+        return{
+          success: false,
+          message:"Already started"
+        }
+      }
+
+      // const correctSessionOnBookSession = await this.prismaService.book_Session.findMany({
+      //   where: { create_session_id: sessionId },
+      //   select: {
+      //     id: true,
+      //     started_at: true,
+      //   },
+      // });
+
+
+      // if (correctSessionOnBookSession.some(session => session.started_at)) {
+      //   return {
+      //     success: false,
+      //     message: 'Session has already been started',
+      //   };
+      // }
+
+      await this.prismaService.book_Session.updateMany({
+        where: { create_session_id: sessionId },
+        data: {
+          started_at: new Date(),
+        }
+      });
+
+      await this.prismaService.create_Session.updateMany({
+        where: { id: sessionId },
+        data:{
+          is_started: 1
+        }
+      })
+
+      return {
+        success: true,
+        message: 'Session started successfully',
+      };
+    } catch (error) {
+      console.error('Error starting session:', error);
+      return {
+        success: false,
+        message: 'An error occurred while starting the session',
+      };
+    }
+  }
+
   //getting all sessions
   // async findAll() {
   //   const sessions = await this.prismaService.create_Session.findMany({

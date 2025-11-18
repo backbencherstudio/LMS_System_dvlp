@@ -19,23 +19,23 @@ import { use } from 'passport';
 export class HelpAndSupportController {
   constructor(private readonly helpAndSupportService: HelpAndSupportService) {}
 
-  @UseGuards(JwtAuthGuard)
+  // @UseGuards(JwtAuthGuard)
   @Post('support-message')
   createSupport(
-    @Req() req: any,
+ //   @Req() req: any,
     @Body() createHelpAndSupportDto: CreateHelpAndSupportDto,
   ) {
-    const userId = req?.user?.userId;
-    if (!userId) {
-      return {
-        success: false,
-        message: 'Please login first',
-      };
-    }
+    // const userId = req?.user?.userId;
+    // if (!userId) {
+    //   return {
+    //     success: false,
+    //     message: 'Please login first',
+    //   };
+    // }
     try {
       return this.helpAndSupportService.createSupport(
         createHelpAndSupportDto,
-        userId,
+        // userId,
       );
     } catch (error) {
       return {

@@ -35,6 +35,25 @@ export class PaymentTransactionController {
     }
   }
 
+  @ApiOperation({ summary: 'Get all payment with booking status' })
+  @Get('with-booking-status')
+  async findAllWithBookingStatus(@Req() req: Request) {
+    try {
+      const user_id = req.user.userId;
+
+      const paymentTransactions =
+        await this.paymentTransactionService.findAllPayments(user_id);
+
+      return paymentTransactions;
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message,
+      };
+    }
+  }
+
+
   @ApiOperation({ summary: 'Get one package' })
   @Get(':id')
   async findOne(@Req() req: Request, @Param('id') id: string) {

@@ -4,7 +4,7 @@ import { UserRepository } from '../../../common/repository/user/user.repository'
 
 @Injectable()
 export class PaymentTransactionService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async findAll(user_id?: string) {
     try {
@@ -31,7 +31,7 @@ export class PaymentTransactionService {
             paid_currency: true,
             created_at: true,
             updated_at: true,
-          
+
           },
         },
       );
@@ -47,7 +47,6 @@ export class PaymentTransactionService {
       };
     }
   }
-
   async findOne(id: string, user_id?: string) {
     try {
       const userDetails = await UserRepository.getUserDetails(user_id);
@@ -95,7 +94,6 @@ export class PaymentTransactionService {
       };
     }
   }
-
   async remove(id: string, user_id?: string) {
     try {
       const userDetails = await UserRepository.getUserDetails(user_id);
@@ -136,5 +134,53 @@ export class PaymentTransactionService {
         message: error.message,
       };
     }
+  }
+
+  async findAllPayments(user_id: string) {
+    try {
+      const allBookedSessionWithPayments = await this.prisma.book_Session.findMany({
+        where: {
+          payment_status: "paid"
+        },
+        select: {
+          id: true,
+          user_id: true,
+          transaction_id: true,
+          payment_status: true,
+          create_session: {
+            select: {
+              id: true,
+              user_id: true,
+              subject: true,
+              session_charge: true,
+              mode: true,
+
+            }
+          },
+
+        }
+      })
+
+
+      const userIds = allBookedSessionWithPayments.map(session => session.user_id);
+
+      const paymentTransaction = await this.prisma.paymentTransaction.findMany({
+        where: {
+          user_id: {
+            in: userIds
+          }
+        }
+      });
+
+      return {
+        success: true,
+        bookedSessions: allBookedSessionWithPayments,
+        paymentTransactions: paymentTransaction,
+      };
+
+    } catch (error) {
+
+    }
+
   }
 }

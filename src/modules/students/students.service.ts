@@ -189,17 +189,35 @@ export class StudentsService {
     };
   }
   async getAllBookedSessionsForStudent(userId: string) {
+    // Fetch the student
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        first_name: true,
+        last_name: true,
+        username: true,
+        avatar: true,
+        type: true,
+      },
+    });
+
+    if (!user) throw new NotFoundException('User not found');
+    if (user.type !== 'student')
+      throw new BadRequestException('Only students can access their booked sessions');
+
+    // Fetch booked sessions
     const bookings = await this.prisma.book_Session.findMany({
       where: { user_id: userId },
       select: {
         id: true,
         username: true,
-        session_date: true || null,
-        is_joined: true || null,
-        is_cancelled: true || null,
-        is_completed: true || null,
-        is_request_for_reschedule: true || null,
-        status: true || null,
+        user_id: true,
+        session_date: true,
+        is_joined: true,
+        is_cancelled: true,
+        is_completed: true,
+        status: true,
         create_session: {
           select: {
             id: true,
@@ -209,114 +227,71 @@ export class StudentsService {
             session_charge: true,
             mode: true,
             join_link: true,
+            user: {
+              select: {
+                first_name: true,
+                last_name: true,
+              },
+            },
           },
         },
-        Reschedule_Session: {
-          select: {
-            id: true,
-            subject: true,
-            reason: true,
-            is_accepted: true,
-            is_rejected: true,
-            reject_reason: true,
-            rescheduled_date: true,
-          },
-        },
+        Reschedule_Session: true,
       },
+      orderBy: { session_date: 'desc' },
     });
 
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        first_name: true,
-        last_name: true,
-        avatar: true,
-        type: true,
-      },
-    });
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    if (userId !== user.id) {
-      return { message: 'Unauthorized access to sessions' };
-    }
-
-    if (user?.type !== 'student') {
-      throw new BadRequestException(
-        'Only students can access their booked sessions',
-      );
-    }
-
-    const teacherName = `${user?.first_name ?? ''} ${user?.last_name ?? ''}`;
-    const avatar = user?.avatar ?? null;
-
+    // Format the bookings
     const formattedBookings = bookings.map((booking) => {
-      return {
-        bookingId: booking.id || 'N/A',
-        studentUsername: booking.username,
-        sessionDate: booking.session_date
-          ? new Date(booking.session_date).toISOString()
-          : 'N/A',
-        isJoined: booking.is_joined === 1 ? true : false,
-        isCancelled: booking.is_cancelled === 1 ? true : false,
-        isCompleted: booking.is_completed === 1 ? true : false,
-        status: booking.status || 'N/A',
-        // sessionDetails: {
-        //   sessionId: booking.create_session.id || 'N/A',
-        //   teacherId: booking.create_session.user_id,
-        //   teacherName: teacherName.trim() || 'N/A',
-        //   avatar: avatar,
-        //   sessionType: booking.create_session.session_type,
-        //   subject: booking.create_session.subject,
-        //   charge: booking.create_session.session_charge,
-        //   mode: booking.create_session.mode,
-        //   joinLink: booking.create_session.join_link ?? 'N/A',
-        // },
-        sessionDetails: booking.create_session
-          ? {
-            sessionId: booking.create_session.id || 'N/A',
-            teacherId: booking.create_session.user_id,
-            teacherName: teacherName.trim() || 'N/A',
-            avatar: avatar,
-            sessionType: booking.create_session.session_type,
-            subject: booking.create_session.subject,
-            charge: booking.create_session.session_charge,
-            mode: booking.create_session.mode,
-            joinLink: booking.create_session.join_link ?? 'N/A',
-          }
-          : 'sessionDetails not available',
+      const reschedule = booking.Reschedule_Session?.[0];
+      const session = booking;
+      const sessionInfo = booking.create_session;
 
-        rescheduleDetails:
-          Array.isArray(booking.Reschedule_Session) &&
-            booking.Reschedule_Session.length > 0
-            ? {
-              requestId: booking.Reschedule_Session[0].id,
-              subject: booking.Reschedule_Session[0].subject,
-              reason: booking.Reschedule_Session[0].reason,
-              isAccepted:
-                booking.Reschedule_Session[0].is_accepted === 1
-                  ? true
-                  : false,
-              isRejected:
-                booking.Reschedule_Session[0].is_rejected === 1
-                  ? true
-                  : false,
-              rejectReason:
-                booking.Reschedule_Session[0].reject_reason || 'N/A',
-              rescheduledDate: booking.Reschedule_Session[0].rescheduled_date
-                ? new Date(
-                  booking.Reschedule_Session[0].rescheduled_date,
-                ).toISOString()
-                : 'rescheduleDetails not available',
-            }
-            : null,
+      const teacherName = sessionInfo?.user
+        ? `${sessionInfo.user.first_name ?? ''} ${sessionInfo.user.last_name ?? ''}`.trim()
+        : null;
+
+      return {
+        studentDetails: {
+          studentUsernameWhileBooking: booking.username,
+          id: user.id,
+          userName: user.username,
+          firstName: user.first_name,
+          lastName: user.last_name,
+          avatar: user.avatar ?? null,
+        },
+        sessionDetails: session
+          ? {
+            sessionId: session.id,
+            teacherId: session.user_id,
+            teacherName,
+            sessionType: sessionInfo.session_type,
+            subject: sessionInfo.subject,
+            charge: sessionInfo.session_charge,
+            mode: sessionInfo.mode,
+            joinLink: sessionInfo.join_link ?? 'N/A',
+          }
+          : null,
+        rescheduleDetails: reschedule
+          ? {
+            requestId: reschedule.id,
+            subject: reschedule.subject,
+            reason: reschedule.reason,
+            isAccepted: Boolean(reschedule.is_accepted),
+            isRejected: Boolean(reschedule.is_rejected),
+            rejectReason: reschedule.reject_reason ?? 'N/A',
+            rescheduledDate: reschedule.rescheduled_date?.toISOString() ?? null,
+          }
+          : null,
+        sessionDate: booking.session_date?.toISOString() ?? null,
+        isJoined: Boolean(booking.is_joined),
+        isCancelled: Boolean(booking.is_cancelled),
+        isCompleted: Boolean(booking.is_completed),
+        status: booking.status ?? 'N/A',
       };
     });
 
     return {
+      success: true,
       bookings: formattedBookings,
     };
   }
@@ -402,101 +377,103 @@ export class StudentsService {
       completedSessions: formattedCompletedSessions,
     };
   }
-
   async joinsession(userId: string, sessionId: string) {
     try {
       const session = await this.prisma.book_Session.findUnique({
-      where: { id: sessionId, user_id: userId},
-      select: {
-        id: true,
-        username: true,
-        is_joined: true,
-        is_cancelled: true,
-        payment_status: true,
-      },
-    });
-
-
-
-    if (!session) {
-      throw new NotFoundException('Session not found');
-    }
-
-    if (session.payment_status === "paid") {
-          if (session.is_cancelled === 1) {
-      return { message: 'Cannot join a cancelled session' };
-    }
-
-    if (session.is_joined === 1) {
-      return { message: 'Session already joined' };
-    } else {
-      await this.prisma.book_Session.update({
-        where: { id: sessionId },
-        data: { is_joined: 1 },
+        where: { id: sessionId, user_id: userId },
+        select: {
+          id: true,
+          username: true,
+          is_joined: true,
+          is_cancelled: true,
+          payment_status: true,
+        },
       });
 
-      // send join session notification
-      const joinNotificationPayload: any = {
-        sender_id: userId,
-        receiver_id: userId,
-        text: `You have joined the session: ${session.username}`,
-        type: 'session_joined',
-      };
 
-      const userSocketId = this.messageGateway.clients.get(userId);
 
-      if (userSocketId) {
-        this.messageGateway.server
-          .to(userSocketId)
-          .emit('notification', joinNotificationPayload);
-        console.log(`Notification sent to user ${userId}`);
-      } else {
-        console.log(
-          `User ${userId} is not connected, notification will be sent later.`,
-        );
+      if (!session) {
+        throw new NotFoundException('Session not found');
       }
 
-      NotificationRepository.createNotification(joinNotificationPayload);
+      if (session.payment_status === "paid") {
+        if (session.is_cancelled === 1) {
+          return { message: 'Cannot join a cancelled session' };
+        }
 
-      // teacher notification
-      const bookedSession = await this.prisma.book_Session.findUnique({
-        where: { id: sessionId },
-        select: { create_session_id: true },
-      });
+        if (session.is_joined === 1) {
+          return { message: 'Session already joined' };
+        } else {
+          await this.prisma.book_Session.update({
+            where: { id: sessionId },
+            data: { is_joined: 1, joined_at: new Date() },
+          });
 
-      const createSession = await this.prisma.create_Session.findUnique({
-        where: { id: bookedSession.create_session_id },
-        select: { subject: true, user_id: true },
-      });
-      const teacherNotificationPayload: any = {
-        sender_id: userId,
-        receiver_id: createSession.user_id,
-        text: `Your session with Subject Name: ${createSession.subject} has been joined by ${session.username}`,
-        type: 'session_joined',
-      };
+          // send join session notification
+          const joinNotificationPayload: any = {
+            sender_id: userId,
+            receiver_id: userId,
+            text: `You have joined the session: ${session.username}`,
+            type: 'session_joined',
+          };
 
-      const userSocketIdTutor = this.messageGateway.clients.get(
-        createSession.user_id,
-      );
+          const userSocketId = this.messageGateway.clients.get(userId);
 
-      if (userSocketIdTutor) {
-        this.messageGateway.server
-          .to(userSocketIdTutor)
-          .emit('notification', teacherNotificationPayload);
-        console.log(`Notification sent to user ${createSession.user_id}`);
+          if (userSocketId) {
+            this.messageGateway.server
+              .to(userSocketId)
+              .emit('notification', joinNotificationPayload);
+            console.log(`Notification sent to user ${userId}`);
+          } else {
+            console.log(
+              `User ${userId} is not connected, notification will be sent later.`,
+            );
+          }
+
+          NotificationRepository.createNotification(joinNotificationPayload);
+
+          // teacher notification
+          const bookedSession = await this.prisma.book_Session.findUnique({
+            where: { id: sessionId },
+            select: { create_session_id: true },
+          });
+
+          const createSession = await this.prisma.create_Session.findUnique({
+            where: { id: bookedSession.create_session_id },
+            select: { subject: true, user_id: true },
+          });
+          const teacherNotificationPayload: any = {
+            sender_id: userId,
+            receiver_id: createSession.user_id,
+            text: `Your session with Subject Name: ${createSession.subject} has been joined by ${session.username}`,
+            type: 'session_joined',
+          };
+
+          const userSocketIdTutor = this.messageGateway.clients.get(
+            createSession.user_id,
+          );
+
+          if (userSocketIdTutor) {
+            this.messageGateway.server
+              .to(userSocketIdTutor)
+              .emit('notification', teacherNotificationPayload);
+            console.log(`Notification sent to user ${createSession.user_id}`);
+          } else {
+            console.log(
+              `User ${createSession.user_id} is not connected, notification will be sent later.`,
+            );
+          }
+
+          NotificationRepository.createNotification(teacherNotificationPayload);
+
+          return { success: true, message: 'Session joined successfully' };
+        }
       } else {
-        console.log(
-          `User ${createSession.user_id} is not connected, notification will be sent later.`,
-        );
+        return {
+          success: false,
+          message: 'Payment pending. Please complete the payment to join the session.'
+        }
       }
-
-      NotificationRepository.createNotification(teacherNotificationPayload);
-
-      return { message: 'Session joined successfully' };
-    }
-    }else{
-      return { message: 'Payment pending. Please complete the payment to join the session.' }
-    }
 
 
     } catch (error) {
@@ -515,6 +492,7 @@ export class StudentsService {
     });
     if (session?.is_joined === 1) {
       return {
+        success: false,
         message: 'You cannot cancel a session that has already been joined',
       };
     }
@@ -526,8 +504,9 @@ export class StudentsService {
       where: { id: sessionId },
       data: { is_cancelled: 1 },
     });
-    return { message: 'Session cancelled successfully' };
+    return { success: true, message: 'Session cancelled successfully' };
   }
+
   async requestRescheduleSession(
     reqDTo: ReqDto,
     sessionId: string,
@@ -535,65 +514,67 @@ export class StudentsService {
   ) {
     try {
       const req = await this.prisma.book_Session.findFirst({
-        where: {
-          id: sessionId,
-          user_id: userId,
-        },
+        where: { id: sessionId, user_id: userId },
         select: {
           id: true,
           username: true,
           is_joined: true,
           is_cancelled: true,
+          started_at: true,     
           session_date: true,
+          status: true,
+          is_request_for_reschedule: true,
           subject: true,
           create_session_id: true,
-          create_session: {
-            select: {
-              user_id: true,
-            },
-          },
+          create_session: { select: { user_id: true } },
         },
       });
 
       if (!req) {
-        return { message: 'Session not found' };
+        return { success: false, message: 'Session not found' };
       }
 
+      // Cannot reschedule if already joined or cancelled
       if (req.is_joined === 1) {
-        return {
-          message:
-            'You cannot reschedule a session that has already been joined',
-        };
+        return { success: false, message: 'You cannot reschedule a session that has already been joined' };
       }
 
       if (req.is_cancelled === 1) {
-        return { message: 'You cannot reschedule a cancelled session' };
+        return { success: false, message: 'You cannot reschedule a cancelled session' };
       }
 
-      const existingRescheduleRequest =
-        await this.prisma.reschedule_Session.findFirst({
-          where: {
-            user_id: userId,
-            book_session_id: sessionId,
-          },
-        });
+      // Check for existing reschedule request
+      const existingRescheduleRequest = await this.prisma.reschedule_Session.findFirst({
+        where: { user_id: userId, book_session_id: sessionId },
+      });
 
       if (existingRescheduleRequest) {
-        return {
-          message:
-            'A reschedule request has already been made for this session',
-        };
+        return { success: false, message: 'A reschedule request has already been made for this session' };
+      }
+
+      if (!req.started_at) {
+        return { success: false, message: 'Session has not started yet, so you cannot request a reschedule.' };
+      }
+
+      if(req.status === "Reschedule_requested" || req.is_request_for_reschedule === 1){
+        return { success: false, message: 'A reschedule request is already pending for this session.' };
       }
 
       const now = new Date();
-      const sessionDate = new Date(req.session_date);
-      // const sessionEndTime = new Date(sessionDate.getTime() + 60 * 60 * 1000);
-      const sessionEndTime = new Date(sessionDate.getTime() + 10 * 1000); // Adds 10 seconds
-      if (now < sessionEndTime) {
-        return {
-          message:
-            'Reschedule requests can only be made after the session end time',
-        };
+      const sessionStart = new Date(req.started_at); 
+
+      const minRescheduleTime = new Date(sessionStart.getTime() + 10 * 1000);
+      const maxRescheduleTime = new Date(sessionStart.getTime() + 3 * 60 * 60 * 1000);
+
+      console.log("Session started_at:", sessionStart.toISOString());
+
+
+      if (now < minRescheduleTime) {
+        return { success: false, message: 'You can request a reschedule only after 10 seconds of session start' };
+      }
+
+      if (now > maxRescheduleTime) {
+        return { success: false, message: 'You cannot request a reschedule after 3 hours of session start' };
       }
 
       await this.prisma.reschedule_Session.create({
@@ -611,12 +592,14 @@ export class StudentsService {
         data: { is_request_for_reschedule: 1, status: 'Reschedule_requested' },
       });
 
-      return { message: 'Reschedule request sent successfully' };
+      return { success: true, message: 'Reschedule request sent successfully' };
     } catch (error) {
       console.error('Error in requestRescheduleSession service:', error);
       throw new Error(`Service error: ${error.message || error}`);
     }
   }
+
+
   async getAllStudents() {
     const students = await this.prisma.user.findMany({
       where: { type: 'student' },
@@ -728,6 +711,7 @@ export class StudentsService {
       where: { user_id: userId },
       select: {
         id: true,
+        user_id: true,
         username: true,
         session_date: true || null,
         is_joined: true || null,
@@ -761,8 +745,11 @@ export class StudentsService {
       },
     });
 
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
+
+    const teacherIDs = bookings.map(booking => booking.create_session.user_id);
+
+    const teachers = await this.prisma.user.findMany({
+      where: { id: { in: teacherIDs } },
       select: {
         id: true,
         first_name: true,
@@ -772,24 +759,15 @@ export class StudentsService {
       },
     });
 
-    if (!user) {
-      throw new NotFoundException('User not found');
+    if (!teachers || teachers.length === 0) {
+      throw new NotFoundException('Teachers not found');
     }
-
-    if (userId !== user.id) {
-      return { message: 'Unauthorized access to sessions' };
-    }
-
-    if (user?.type !== 'student') {
-      throw new BadRequestException(
-        'Only students can access their booked sessions',
-      );
-    }
-
-    const teacherName = `${user?.first_name ?? ''} ${user?.last_name ?? ''}`;
-    const avatar = user?.avatar ?? null;
 
     const formattedBookings = bookings.map((booking) => {
+      const teacher = teachers.find(t => t.id === booking.create_session.user_id);
+      const teacherName = teacher ? `${teacher.first_name ?? ''} ${teacher.last_name ?? ''}`.trim() : 'N/A';
+      const avatar = teacher ? teacher.avatar : null;
+
       return {
         sessionDate: booking.session_date
           ? new Date(booking.session_date).toISOString()
@@ -797,7 +775,7 @@ export class StudentsService {
 
         sessionDetails: booking.create_session
           ? {
-            teacherName: teacherName.trim() || 'N/A',
+            teacherName: teacherName,
             avatar: avatar,
             subject: booking.create_session.subject,
             mode: booking.create_session.mode,

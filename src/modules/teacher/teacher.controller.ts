@@ -58,7 +58,7 @@ export class TeacherController {
                 @Req() req: any
         ) {
                 const id = req.user.userId;
-                return this.teacherService.getAllSessionsForOneTeacher(id);
+                return this.teacherService.getAllSessionsForOneTeachers(id);
         }
         @UseGuards(JwtAuthGuard)
         @Get('my-ended-sessions')
@@ -164,6 +164,15 @@ export class TeacherController {
                 const userId = req.user.userId;
                 return this.teacherService.update(id, updateSessionDto, userId);
         }
+
+        
+        @UseGuards(JwtAuthGuard)
+        @Patch('start-session/:id')
+        async startSession(@Param('id') id: string, @Req() req: any) {
+                const userId = req.user.userId;
+                return this.teacherService.startASession(id, userId);
+        }
+
 
         @UseGuards(JwtAuthGuard)
         @Delete('delete-session/:id')

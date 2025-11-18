@@ -497,6 +497,7 @@ model Create_Session {
   join_link                     String?
   is_restricted                 Int?           @default(0)
   restriction_reason            String?        @db.Text
+  is_started                   Int?           @default(0)
   is_completed                  Int?           @default(0)
   available_slots_time_and_date DateTime[]
   pdf_attachment                String[]
@@ -528,6 +529,9 @@ model Book_Session {
   is_joined                 Int?                 @default(0)
   is_completed              Int?                 @default(0)
   is_request_for_reschedule Int?                 @default(0)
+  joined_at                DateTime?             @db.Timestamptz
+  started_at               DateTime?             @db.Timestamptz
+  ended_at                 DateTime?             @db.Timestamptz
   session_period            String?
   Reschedule_Session        Reschedule_Session[]
   Rate_Session              Rate_Session[]

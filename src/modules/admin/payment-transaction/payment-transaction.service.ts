@@ -165,11 +165,6 @@ export class PaymentTransactionService {
       const userIds = allBookedSessionWithPayments.map(session => session.user_id);
 
       const paymentTransaction = await this.prisma.paymentTransaction.findMany({
-        where: {
-          user_id: {
-            in: userIds
-          }
-        }
       });
 
       return {

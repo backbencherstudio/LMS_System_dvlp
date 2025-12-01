@@ -506,7 +506,6 @@ export class StudentsService {
     });
     return { success: true, message: 'Session cancelled successfully' };
   }
-
   async requestRescheduleSession(
     reqDTo: ReqDto,
     sessionId: string,
@@ -598,8 +597,6 @@ export class StudentsService {
       throw new Error(`Service error: ${error.message || error}`);
     }
   }
-
-
   async getAllStudents() {
     const students = await this.prisma.user.findMany({
       where: { type: 'student' },

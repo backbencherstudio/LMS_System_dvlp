@@ -24,7 +24,7 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
   app.enableCors({
-    origin: true,
+    origin: ['https://evolvetutoring.ai', 'https://evolvetutoring.ai'],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
@@ -43,13 +43,7 @@ async function bootstrap() {
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          imgSrc: [
-            "'self'",
-            'https://techterms.com',
-            'https://tse3.mm.bing.net',
-            'https://i.pinimg.com',
-            'data:',
-          ],
+          imgSrc: ["'self'", 'data:'],
         },
       },
     }),

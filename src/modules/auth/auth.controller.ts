@@ -399,27 +399,28 @@ export class AuthController {
         type: data.type,
       });
 
+      console.log(response);
       if (response.success) {
-        let redirectUrl = 'https://evolve-lms.netlify.app/login';
+        let redirectUrl = 'https://evolvetutoring.ai/';
         const userType = response.data?.user_type;
 
         if (userType === 'teacher') {
-          redirectUrl = 'https://evolve-lms.netlify.app/tutor/sign-in';
+          redirectUrl = 'https://evolvetutoring.ai/tutor/sign-in';
         } else if (userType === 'student') {
-          redirectUrl = 'https://evolve-lms.netlify.app/student/sign-in';
+          redirectUrl = 'https://evolvetutoring.ai/student/sign-in';
         }
 
         return res.redirect(redirectUrl);
       } else {
         const errorMessage = encodeURIComponent(response.message);
         return res.redirect(
-          `https://evolve-lms.netlify.app/verification-failed?error=${errorMessage}`,
+          `https://evolvetutoring.ai/verification-failed?error=${errorMessage}`,
         );
       }
     } catch (error) {
       const errorMessage = encodeURIComponent('An unexpected error occurred.');
       return res.redirect(
-        `https://evolve-lms.netlify.app/verification-failed?error=${errorMessage}`,
+        `https://evolvetutoring.ai/verification-failed?error=${errorMessage}`,
       );
     }
   }

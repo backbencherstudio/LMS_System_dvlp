@@ -243,10 +243,7 @@ export class AuthController {
     const frontendUrl = 'http://192.168.7.56:3000/auth/google';
 
     return res.redirect(
-      `${frontendUrl} +
-    ?access_token=${accessToken} +
-    &refresh_token=${refreshToken} +
-    &callbackUrl=${callbackUrl}`,
+      `${frontendUrl}?access_token=${accessToken}&refresh_token=${refreshToken}&callbackUrl=${callbackUrl}`,
     );
   }
   // @Redirect('http://192.168.7.56:3000/auth/google')

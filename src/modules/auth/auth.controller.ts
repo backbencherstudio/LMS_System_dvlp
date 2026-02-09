@@ -229,23 +229,44 @@ export class AuthController {
   }
 
   // Route that Google will redirect to after login
+
   @Get('google/redirect')
   @UseGuards(GoogleAuthGuard)
   async googleAuthRedirect(@Req() req, @Res() res: Response) {
-    const { user, loginResponse } = req.user;
+    const { loginResponse } = req.user;
 
-    // Now, return the JWT tokens and the user info
-    return res.json({
-      message: 'Logged in successfully via Google',
-      authorization: loginResponse.authorization,
-      user: {
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        picture: user.picture,
-      },
-    });
+    const accessToken = loginResponse.authorization.access_token;
+    const refreshToken = loginResponse.authorization.refresh_token;
+
+    const callbackUrl = req.query.callbackUrl || '/student-portal';
+
+    const frontendUrl = 'http://192.168.7.56:3000/auth/google';
+
+    return res.redirect(
+      `${frontendUrl} +
+    ?access_token=${accessToken} +
+    &refresh_token=${refreshToken} +
+    &callbackUrl=${callbackUrl}`,
+    );
   }
+  // @Redirect('http://192.168.7.56:3000/auth/google')
+  // @Get('google/redirect')
+  // @UseGuards(GoogleAuthGuard)
+  // async googleAuthRedirect(@Req() req, @Res() res: Response) {
+  //   const { user, loginResponse } = req.user;
+
+  //   // Now, return the JWT tokens and the user info
+  //   return res.json({
+  //     message: 'Logged in successfully via Google',
+  //     authorization: loginResponse.authorization,
+  //     user: {
+  //       email: user.email,
+  //       firstName: user.firstName,
+  //       lastName: user.lastName,
+  //       picture: user.picture,
+  //     },
+  //   });
+  // }
 
   // update user
   // @ApiOperation({ summary: 'Update user' })

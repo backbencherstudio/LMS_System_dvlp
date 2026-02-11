@@ -24,7 +24,12 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
   app.enableCors({
-    origin: ['https://evolvetutoring.ai', 'http://localhost:3000'],
+    origin: [
+      'https://evolvetutoring.ai',
+      'http://localhost:3000',
+      'http://localhost:4002',
+      'http://192.168.7.56:3000',
+    ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });

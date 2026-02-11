@@ -68,7 +68,7 @@ export class MailService {
       await this.queue.add('sendVerificationLink', {
         to: params.email,
         subject: 'Verify Your Email',
-        template: './verification-link',
+        template: 'verification-link',
         context: {
           name: params.name,
           verificationLink,
@@ -92,14 +92,14 @@ export class MailService {
 
       const template =
         params.status === 'accepted'
-          ? './tutor_applicatioonstatus_mail.ejs'
-          : './tutor_applicatioonstatus_mail.ejs';
+          ? 'tutor_applicatioonstatus_mail'
+          : 'tutor_applicatioonstatus_mail';
 
       // add to queue
       await this.queue.add('sendTutorApplicationStatusEmail', {
         to: params.email,
         subject: subject,
-        template: template,
+        template: 'tutor_applicatioonstatus_mail',
         context: {
           name: params.name,
           status: params.status,

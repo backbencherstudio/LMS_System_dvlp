@@ -1257,14 +1257,23 @@ export class AuthService {
   // --------- end 2FA ---------
 
   // google log in using passport.js
-  async googleLogin({ email, userId }: { email: string; userId: string }) {
+  async googleLogin({
+    email,
+    userId,
+    type,
+  }: {
+    email: string;
+    userId: string;
+    type?: string;
+  }) {
     try {
-      const payload = { email: email, sub: userId };
+      const user = await UserRepository.getUserDetails(userId);
+      const userType = type || user?.type || 'student';
+
+      const payload = { email: email, sub: userId, type: userType };
 
       const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
       const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
-
-      const user = await UserRepository.getUserDetails(userId);
 
       await this.redis.set(
         `refresh_token:${user.id}`,
@@ -1322,12 +1331,11 @@ export class AuthService {
     userId: string;
   }) {
     try {
-      const payload = { email: email, sub: userId };
+      const user = await UserRepository.getUserDetails(userId);
+      const payload = { email: email, sub: userId, type: user.type };
 
       const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
       const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
-
-      const user = await UserRepository.getUserDetails(userId);
 
       await this.redis.set(
         `refresh_token:${user.id}`,

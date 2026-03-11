@@ -51,6 +51,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     const loginResponse = await this.authService.googleLogin({
       email: user.email,
       userId: user.id,
+      type: user.type,  // pass the type down explicitly
     });
 
     done(null, { user, loginResponse });

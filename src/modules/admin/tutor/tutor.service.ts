@@ -23,40 +23,22 @@ export class TutorService {
       };
     }
 
-    const sessions = await this.prismaService.create_Session.findMany({
+    const sessions = await this.prismaService.user.findMany({
+      where: {
+        type: 'teacher',
+      },
       select: {
         id: true,
-        user_id: true,
-        subject: true,
-        user: {
-          select: {
-            name: true,
-            hourly_rate: true,
-            status: true,
-            city: true,
-          },
-        },
+        name: true,
+        hourly_rate: true,
+        status: true,
+        city: true,
       },
     });
 
-    const formatted = sessions.map((s) => ({
-      //  SESSION_ID: s.id,
-      User_Id: s.user_id,
-      NAME: s.user?.name,
-      SUBJECT: s.subject,
-      HOURLY_RATE: s.user?.hourly_rate,
-      STATUS:
-        s.user?.status === 1
-          ? 'Active'
-          : s.user?.status === 0
-            ? 'Inactive'
-            : 'Restricted',
-      LOCATION: s.user?.city,
-    }));
-
     return {
       success: true,
-      data: formatted,
+      data: sessions,
     };
   }
   // Get all restricted users

@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { UpdateTeacherDto } from './dto/update-teacher.dto';
@@ -22,7 +23,7 @@ export class TeacherService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly messageGatway: MessageGateway,
-  ) { }
+  ) {}
 
   // session creating
   async create(createSessionDto: CreateSessionDto) {
@@ -181,7 +182,6 @@ export class TeacherService {
           join_link: true,
           session_type: true,
           is_started: true,
-          
         },
       });
 
@@ -195,19 +195,18 @@ export class TeacherService {
 
       // console.log(checkBookSessionStarted);
 
-
       // const formattedSessions = await Promise.all(
       //   sessions.map(async (session) => {
       //     const startedCount = await this.prismaService.book_Session.count({
       //       where: {
       //         create_session_id: session.id,
-      //         started_at: { not: null }, 
+      //         started_at: { not: null },
       //       },
       //     });
 
       //     return {
       //       ...session,
-      //       sessionStarted: startedCount > 0, 
+      //       sessionStarted: startedCount > 0,
       //     };
       //   })
       // );
@@ -215,7 +214,6 @@ export class TeacherService {
       return {
         success: true,
         data: sessions,
-
       };
     } catch (error) {
       console.error('Error in getAllSessionsForOneTeacher:', error);
@@ -241,16 +239,13 @@ export class TeacherService {
     });
   }
 
-
-
   async startASession(sessionId: string, userId: string) {
-
     try {
       const session = await this.prismaService.create_Session.findUnique({
         where: { id: sessionId, user_id: userId },
-        select:{
-          is_started: true
-        }
+        select: {
+          is_started: true,
+        },
       });
       if (!session) {
         return {
@@ -259,11 +254,11 @@ export class TeacherService {
         };
       }
 
-      if(session.is_started === 1){
-        return{
+      if (session.is_started === 1) {
+        return {
           success: false,
-          message:"Already started"
-        }
+          message: 'Already started',
+        };
       }
 
       // const correctSessionOnBookSession = await this.prismaService.book_Session.findMany({
@@ -273,7 +268,6 @@ export class TeacherService {
       //     started_at: true,
       //   },
       // });
-
 
       // if (correctSessionOnBookSession.some(session => session.started_at)) {
       //   return {
@@ -286,15 +280,15 @@ export class TeacherService {
         where: { create_session_id: sessionId },
         data: {
           started_at: new Date(),
-        }
+        },
       });
 
       await this.prismaService.create_Session.updateMany({
         where: { id: sessionId },
-        data:{
-          is_started: 1
-        }
-      })
+        data: {
+          is_started: 1,
+        },
+      });
 
       return {
         success: true,
@@ -534,6 +528,56 @@ export class TeacherService {
     });
 
     return { teacherIds: teachers };
+  }
+
+  // Get all states
+  async getStates(userId: string) {
+    try {
+      const isteacher = await this.prismaService.user.findUnique({
+        where: { id: userId },
+        select: { type: true },
+      });
+
+      if (isteacher.type !== 'teacher') {
+        throw new ForbiddenException(
+          'Only users with TEACHER role can get states',
+        );
+      }
+      const states = await this.prismaService.create_Session.findMany({
+        where: {
+          user_id: userId,
+        },
+      });
+
+      const totalSessions = states.length;
+
+      const completedSessions = states.filter((s) => s.is_completed === 1);
+
+      const totalEarnings = completedSessions.reduce((sum, s) => {
+        const charge = parseFloat(s.session_charge || '0');
+        return sum + (isNaN(charge) ? 0 : charge);
+      }, 0);
+
+      const totalRatingsCount = await this.prismaService.rate_Session.count({
+        where: {
+          create_session: {
+            user_id: userId,
+          },
+        },
+      });
+
+      return {
+        success: true,
+        message: 'States fetched successfully',
+        data: {
+          totalSessions,
+          totalEarnings,
+          totalRatingsCount,
+        },
+      };
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to fetch states');
+    }
   }
 
   //getting one session by id
